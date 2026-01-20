@@ -9,9 +9,12 @@
 
 from .short_term import ShortTermMemory, ConversationTurn, KeyEntity
 from .long_term import LongTermMemory, MemoryItem, MemoryType
-
-# 延迟导入，避免循环依赖
-# from .routing import MemoryRouter
+from .routing import (
+    MemoryRouter,
+    RouteDecision,
+    RoutingContext,
+    RoutingResult,
+)
 
 __all__ = [
     "ShortTermMemory",
@@ -20,5 +23,8 @@ __all__ = [
     "LongTermMemory",
     "MemoryItem",
     "MemoryType",
-    # "MemoryRouter",
+    "MemoryRouter",
+    "RouteDecision",
+    "RoutingContext",
+    "RoutingResult",
 ]
