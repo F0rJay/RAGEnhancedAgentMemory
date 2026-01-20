@@ -7,12 +7,12 @@
 - 重排序 (Reranking)
 """
 
-# 延迟导入，避免循环依赖
-# from .hybrid import HybridRetriever
-# from .reranker import Reranker
+from .hybrid import HybridRetriever, HybridRetrievalResult
+from .reranker import Reranker, RerankedResult
 
-# TODO: 将在第六步实现
 __all__ = [
-    # "HybridRetriever",
-    # "Reranker",
+    "HybridRetriever",
+    "HybridRetrievalResult",
+    "Reranker",
+    "RerankedResult",
 ]

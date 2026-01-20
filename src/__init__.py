@@ -7,7 +7,10 @@ RAGEnhancedAgentMemory - 企业级 RAG 增强型 Agent 记忆系统
 __version__ = "0.1.0"
 __author__ = "F0rJay"
 
-# 延迟导入，避免循环依赖
-# from rag_enhanced_memory.core import RAGEnhancedAgentMemory
+from .core import RAGEnhancedAgentMemory
 
-__all__ = ["__version__", "__author__"]
+__all__ = [
+    "__version__",
+    "__author__",
+    "RAGEnhancedAgentMemory",
+]
