@@ -1,0 +1,41 @@
+# 核心依赖
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-community>=0.3.0
+
+# 推理引擎 (可选，如果需要本地推理)
+# vllm>=0.6.0  # 注释掉，因为需要 CUDA 和特定环境
+
+# 向量数据库
+qdrant-client>=1.7.0
+chromadb>=0.4.0
+
+# 关系型数据库
+psycopg2-binary>=2.9.0
+
+# 嵌入模型和重排序
+sentence-transformers>=2.3.0
+transformers>=4.36.0
+torch>=2.1.0
+
+# 评估框架
+ragas>=0.1.0
+
+# 工具库
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+numpy>=1.24.0
+typing-extensions>=4.8.0
+
+# 异步支持
+aiohttp>=3.9.0
+# asyncio 是 Python 标准库，不需要安装
+
+# 日志和监控
+loguru>=0.7.0
+
+# 测试框架
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
