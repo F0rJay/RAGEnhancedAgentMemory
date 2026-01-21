@@ -73,7 +73,10 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
-addopts = "-v --cov=src --cov-report=html --cov-report=term"
+# 注意：默认不启用覆盖率，避免导入大型库导致测试变慢
+# 需要覆盖率时使用: pytest --cov=src --cov-report=html --cov-report=term
+# addopts = "-v --cov=src --cov-report=html --cov-report=term"
+addopts = "-v"
 
 [tool.mypy]
 python_version = "3.9"

@@ -41,7 +41,7 @@ class Settings(BaseSettings):
 
     # 模型配置
     embedding_model: str = Field(
-        default="BAAI/bge-large-en-v1.5", description="嵌入模型名称"
+        default="BAAI/bge-large-zh-v1.5", description="嵌入模型名称"
     )
     embedding_dim: int = Field(default=1024, description="嵌入向量维度")
     embedding_device: Literal["cuda", "cpu"] = Field(default="cuda", description="嵌入模型设备")
@@ -52,11 +52,20 @@ class Settings(BaseSettings):
     rerank_top_k: int = Field(default=5, description="重排序 Top-K 数量")
 
     # vLLM 配置
-    vllm_model_path: Optional[str] = Field(default=None, description="vLLM 模型路径")
-    vllm_gpu_memory_utilization: float = Field(
-        default=0.9, description="vLLM GPU 内存使用率"
+    vllm_model_path: Optional[str] = Field(
+        default="Qwen/Qwen2.5-7B-Instruct", 
+        description="vLLM 模型路径（推荐 7B 模型以在 31GB GPU 上运行）"
     )
-    vllm_max_model_len: int = Field(default=4096, description="vLLM 最大模型长度")
+    vllm_gpu_memory_utilization: float = Field(
+        default=0.4, description="vLLM GPU 内存使用率（31GB GPU 建议 0.4，确保有足够 KV cache 内存）"
+    )
+    vllm_max_model_len: int = Field(default=512, description="vLLM 最大模型长度（31GB GPU 建议 512-1024，降低以节省内存）")
+
+    # 镜像源配置
+    hf_endpoint: Optional[str] = Field(
+        default=None, 
+        description="HuggingFace 镜像源（如 https://hf-mirror.com），留空使用官方源"
+    )
 
     # API 密钥
     openai_api_key: Optional[str] = Field(default=None, description="OpenAI API 密钥")
@@ -68,6 +77,23 @@ class Settings(BaseSettings):
     )
     long_term_trigger: float = Field(
         default=0.7, description="长期记忆检索触发阈值 (相关性评分)"
+    )
+    
+    # 存储优化配置
+    semantic_dedup_threshold: float = Field(
+        default=0.96, description="语义去重相似度阈值 (0-1)，建议 0.95-0.96，越高越严格（存更多），越低越宽松（删更多）"
+    )
+    enable_low_value_filter: bool = Field(
+        default=True, description="是否启用低价值信息过滤"
+    )
+    enable_time_decay: bool = Field(
+        default=True, description="是否启用时间加权衰减"
+    )
+    time_decay_lambda: float = Field(
+        default=0.001, description="时间衰减系数 (λ, 单位: 1/秒)"
+    )
+    access_count_alpha: float = Field(
+        default=0.1, description="访问计数强化系数 (α)"
     )
 
     # LangGraph 配置

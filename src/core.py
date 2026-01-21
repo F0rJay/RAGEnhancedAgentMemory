@@ -232,6 +232,73 @@ class RAGEnhancedAgentMemory:
             "retrieval_query": query,
         }
 
+    def _is_low_value_message(self, message: str) -> bool:
+        """
+        判断消息是否为低价值信息（包含实体白名单检查）
+        
+        Args:
+            message: 消息文本
+        
+        Returns:
+            如果是低价值信息返回 True
+        """
+        import re
+        
+        # 实体白名单关键词（包含这些词的内容强制保留）
+        entity_whitelist_keywords = {
+            "码", "色", "号", "钱", "元", "块", "kg", "斤", "地址", "手机",
+            "尺码", "颜色", "订单号", "ORDER", "价格",
+        }
+        
+        # 意图白名单关键词（业务动作词，决定是否为业务指令）
+        intent_whitelist_keywords = {
+            # 购买意图
+            "买", "购", "下单", "定", "要", "需要",
+            # 售后意图
+            "退", "换", "修", "坏", "错", "不合适", "问题",
+            # 咨询意图
+            "查", "问", "哪里", "什么", "怎么", "如何", "能否", "可以",
+            # 物流意图
+            "物流", "快递", "发货", "配送", "到", "送达", "派送",
+            # 资产/凭证
+            "单", "票", "券", "会员", "订单",
+            # 客服/权益意图
+            "电话", "人工", "联系", "包邮", "优惠", "折扣", "客服",
+        }
+        
+        # 合并所有白名单关键词
+        all_whitelist_keywords = entity_whitelist_keywords | intent_whitelist_keywords
+        
+        message_clean = message.strip()
+        
+        # 策略A：实体白名单 + 意图白名单检查 - 包含数字或业务关键词的强制保留
+        if re.search(r'\d+', message_clean):
+            return False  # 包含数字，强制保留
+        if any(keyword in message_clean for keyword in all_whitelist_keywords):
+            return False  # 包含业务关键词（实体或意图），强制保留
+        
+        # 低价值关键词（寒暄、无意义对话）
+        low_value_keywords = {
+            "你好", "谢谢", "好的", "在吗", "收到", "嗯", "OK", "明白", "知道了",
+            "哦", "嗯嗯", "好的好的", "谢谢谢谢", "不客气", "没问题", "行", "可以",
+            "收到", "了解", "嗯嗯", "好的", "好的", "明白", "清楚", "知道了",
+        }
+        
+        # 检查是否完全是低价值关键词
+        if message_clean in low_value_keywords:
+            return True
+        
+        # 检查消息长度（极短且无关键词的才删，如"好的"、"谢谢"）
+        if len(message_clean) < 5:
+            return True
+        
+        # 计算信息熵（简化版）
+        # 如果信息熵太低，可能是低价值信息
+        if len(set(message_clean)) < 3 and len(message_clean) < 5:
+            return True
+        
+        return False
+
     def save_context(
         self,
         inputs: Dict[str, Any],
@@ -248,6 +315,13 @@ class RAGEnhancedAgentMemory:
         ai_response = outputs.get("generation", "")
 
         if user_input and ai_response:
+            # 低价值信息过滤
+            settings = get_settings()
+            if settings.enable_low_value_filter:
+                if self._is_low_value_message(user_input) and self._is_low_value_message(ai_response):
+                    logger.debug(f"过滤低价值对话: {user_input[:50]}...")
+                    return  # 不保存低价值信息
+            
             # 保存到短期记忆
             self.short_term_memory.add_conversation_turn(
                 human_message=user_input,
@@ -370,10 +444,13 @@ class RAGEnhancedAgentMemory:
         if not conversation_turns:
             return []
 
+        settings = get_settings()
         archived_ids = self.long_term_memory.archive_from_short_term(
             conversation_turns=conversation_turns,
             session_id=self.session_id,
             deduplicate=True,
+            semantic_dedup=True,  # 启用语义相似度去重
+            filter_low_value=settings.enable_low_value_filter,  # 启用低价值过滤
         )
 
         logger.info(f"归档了 {len(archived_ids)} 条记忆到长期记忆库")

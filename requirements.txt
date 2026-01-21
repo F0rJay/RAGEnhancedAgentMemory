@@ -3,8 +3,11 @@ langgraph>=0.2.0
 langchain-core>=0.3.0
 langchain-community>=0.3.0
 
-# 推理引擎 (可选，如果需要本地推理)
-# vllm>=0.6.0  # 注释掉，因为需要 CUDA 和特定环境
+# 推理引擎
+# vLLM 需要 CUDA >= 11.8 环境（推荐使用 GPU）
+# 如果没有 GPU 环境，安装可能会失败，此时可以注释掉或使用云端 API
+# 如果需要安装 vLLM，确保已安装 CUDA Toolkit 和相应的驱动
+vllm>=0.6.0
 
 # 向量数据库
 qdrant-client>=1.7.0

@@ -79,3 +79,4 @@ data/
 # 向量数据库数据
 qdrant_storage/
 chroma_db/
+qdrant_db/

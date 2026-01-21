@@ -44,7 +44,7 @@ def test_long_term_memory_initialization(mock_vector_db, monkeypatch):
         def encode(self, texts, **kwargs):
             return [[0.1] * 1024] * (1 if isinstance(texts, str) else len(texts))
 
-    monkeypatch.setattr("src.memory.long_term.SentenceTransformer", lambda *args: MockModel())
+    monkeypatch.setattr("src.memory.long_term.SentenceTransformer", lambda *args, **kwargs: MockModel())
 
     # 模拟向量数据库客户端
     class MockClient:
@@ -63,7 +63,7 @@ def test_long_term_memory_initialization(mock_vector_db, monkeypatch):
         def get_collection(self, name):
             return type("obj", (object,), {"points_count": 0})()
 
-    monkeypatch.setattr("src.memory.long_term.QdrantClient", lambda *args: MockClient())
+    monkeypatch.setattr("src.memory.long_term.QdrantClient", lambda *args, **kwargs: MockClient())
 
     try:
         memory = LongTermMemory(vector_db="qdrant", embedding_model="test/model")

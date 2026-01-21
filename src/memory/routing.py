@@ -160,6 +160,14 @@ class MemoryRouter:
         """
         query = context.query
         recent_score = context.recent_relevance_score
+        
+        # 确保 recent_score 是浮点数类型
+        if recent_score is not None:
+            try:
+                recent_score = float(recent_score)
+            except (ValueError, TypeError):
+                # 如果无法转换，设为 None
+                recent_score = None
 
         # 规则 1: 短期记忆为空，必须使用长期记忆
         if turn_count == 0:
@@ -270,6 +278,7 @@ class MemoryRouter:
                 conversation_turns=short_term_context_data.get("conversation", []),
                 session_id=session_id,
                 deduplicate=True,
+                semantic_dedup=True,  # 启用语义相似度去重
             )
 
             # 检索长期记忆
