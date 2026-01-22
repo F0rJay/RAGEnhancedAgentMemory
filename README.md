@@ -401,8 +401,9 @@ RAGEnhancedAgentMemory/
 - 📖 [使用文档](docs/USAGE.md) - 详细使用说明
 - ⚙️ [环境配置](docs/ENV_CONFIG.md) - 环境变量配置说明
 - 🖥️ [vLLM 服务器设置](docs/VLLM_SERVER_SETUP.md) - vLLM 服务配置指南
+- 📊 [模拟测试报告](docs/EXPERIMENT_SUMMARY.md) - 我们模拟用户使用插件的测试结果
 
-> **注意**：开发/测试文档（性能报告、项目状态、实验总结等）已移至 `dev/` 目录，仅供开发者使用。
+> **注意**：其他开发/测试文档（性能报告、项目状态等）已移至 `dev/` 目录，仅供开发者使用。
 
 ### 设置指南
 
