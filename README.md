@@ -545,9 +545,10 @@ ruff check src/ tests/
 
 ## 🔗 相关资源
 
-- [LangGraph 官方文档](https://langchain-ai.github.io/langgraph/)
-- [vLLM 文档](https://docs.vllm.ai/)
-- [RAG 最佳实践](https://github.com/langchain-ai/langgraph/discussions)
+- [LangGraph 官方文档](https://langchain-ai.github.io/langgraph/) - Agent 编排框架文档
+- [vLLM 文档](https://docs.vllm.ai/) - 高性能 LLM 推理引擎文档
+- [Qdrant 文档](https://qdrant.tech/documentation/) - 向量数据库文档
+- [Ragas 文档](https://docs.ragas.io/) - RAG 评估框架文档
 
 ---
 
