@@ -42,32 +42,34 @@ RAGEnhancedAgentMemory/
 │   ├── test_state.py             # 状态测试
 │   └── test_storage_optimization.py  # 存储优化测试
 │
-├── scripts/                      # 脚本目录
-│   ├── benchmark/                # 基准测试
-│   │   ├── baseline_agents.py    # 基线系统实现
-│   │   ├── baseline_test.py      # 基线测试
-│   │   ├── conversation_dataset.py  # 对话数据集生成
-│   │   ├── enhanced_test.py      # 增强系统测试
-│   │   ├── long_conversation_test.py  # 长对话对比测试
-│   │   └── storage_optimization_test.py  # 存储优化测试
-│   ├── benchmark_results/        # 测试结果
-│   │   ├── baseline_results.json
-│   │   ├── enhanced_results.json
-│   │   ├── comparison_report.json
-│   │   └── storage_optimization/  # 存储优化测试结果
-│   ├── verify_functionality.py   # 功能验证脚本
-│   └── download_embedding_model.py  # 模型下载脚本
+├── scripts/                      # 用户工具和示例脚本
+│   ├── launch_vllm_server.py     # vLLM 服务启动脚本
+│   ├── download_model.py         # 模型下载工具
+│   ├── check_mirrors.py          # 镜像检查工具
+│   ├── basic_example.py          # 基础使用示例
+│   ├── langgraph_example.py     # LangGraph 集成示例
+│   └── evaluation_example.py    # 评估示例
 │
-├── docs/                         # 文档目录
-│   ├── BASELINE_ANALYSIS.md      # 基线系统分析
-│   ├── PROJECT_STATUS.md         # 项目状态报告（最新）
-│   ├── STORAGE_OPTIMIZATION_REPORT.md  # 存储优化技术报告
-│   ├── STORAGE_OPTIMIZATION_IMPLEMENTATION.md  # 存储优化实现
-│   ├── STORAGE_OPTIMIZATION_TESTING.md  # 存储优化测试
+├── docs/                         # 用户文档目录
+│   ├── PLUGIN_USAGE.md           # 插件使用指南
+│   ├── USAGE.md                  # 使用文档
 │   ├── ENV_CONFIG.md             # 环境变量配置说明
+│   ├── VLLM_SERVER_SETUP.md      # vLLM 服务器设置指南
 │   ├── DOCKER_SETUP.md           # Docker 配置指南
 │   ├── POSTGRESQL_SETUP.md       # PostgreSQL 配置指南
-│   └── USAGE.md                  # 使用文档
+│   └── MIRROR_SETUP.md           # 镜像源设置指南
+│
+├── dev/                          # 开发/测试文件（不提交到 GitHub）
+│   ├── scripts/                  # 开发脚本
+│   │   ├── benchmark/            # 基准测试脚本
+│   │   ├── verify_functionality.py
+│   │   └── ...
+│   ├── docs/                     # 开发文档
+│   │   ├── COMPARISON_TEST.md
+│   │   ├── EXPERIMENT_SUMMARY.md
+│   │   ├── PROJECT_STATUS.md
+│   │   └── ...
+│   └── benchmark_results/         # 测试结果
 │
 ├── .gitignore                    # Git 忽略文件
 ├── LICENSE                       # MIT 许可证
@@ -77,7 +79,6 @@ RAGEnhancedAgentMemory/
 ├── requirements.txt              # Python 依赖
 ├── pyproject.toml                # 项目配置
 ├── py.typed                      # 类型提示标记
-├── Untitled.pdf                  # 项目愿景文档
 │
 └── (运行时生成的目录，已添加到 .gitignore)
     ├── __pycache__/              # Python 缓存
@@ -96,8 +97,9 @@ RAGEnhancedAgentMemory/
 
 - **`src/`**: 源代码目录，包含所有核心模块
 - **`tests/`**: 测试代码，覆盖率达到 73%（核心模块 85%+）
-- **`scripts/`**: 脚本和工具，包括基准测试和数据生成
-- **`docs/`**: 项目文档，包括技术报告和分析
+- **`scripts/`**: 用户工具和示例脚本
+- **`docs/`**: 用户文档，包括使用指南和配置说明
+- **`dev/`**: 开发/测试文件（不提交到 GitHub），包括基准测试脚本和开发文档
 
 ### 运行时目录（已忽略）
 

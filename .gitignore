@@ -88,10 +88,5 @@ docs/VLLM_TROUBLESHOOTING_JOURNEY.md
 benchmark_comparison_report.md
 benchmarkAPI_comparison_report.md
 
-# 开发/测试脚本（不提交到 GitHub，但保留在本地）
-scripts/benchmark/
-scripts/verify_functionality.py
-scripts/download_embedding_model.py
-scripts/setup_mirrors.sh
-scripts/install_postgres.sh
-scripts/benchmark_results/
+# 开发/测试文件（不提交到 GitHub，但保留在本地）
+dev/

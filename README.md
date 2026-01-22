@@ -383,7 +383,8 @@ RAGEnhancedAgentMemory/
 │   ├── graph/                 # LangGraph 集成
 │   └── evaluation/            # 评估框架
 ├── tests/                     # 测试套件
-├── scripts/                   # 示例脚本和基准测试
+├── scripts/                   # 用户示例脚本和工具
+├── dev/                       # 开发/测试文件（不对外提供）
 ├── docs/                      # 文档
 ├── requirements.txt           # 依赖列表
 └── pyproject.toml            # 包配置
@@ -393,20 +394,15 @@ RAGEnhancedAgentMemory/
 
 ## 📚 文档
 
-### 核心文档
+### 核心文档（用户文档）
 
-- 📊 [性能指标汇总](docs/Performance.md) - 全面的性能基准测试
-- 📋 [项目状态报告](docs/PROJECT_STATUS.md) - 开发进展和路线图
 - 🚀 [快速开始指南](QUICKSTART.md) - 5 分钟快速上手
 - 🔌 [插件使用指南](docs/PLUGIN_USAGE.md) - 开发者集成指南
-- 🧪 [模拟测试报告](docs/EXPERIMENT_SUMMARY.md) - 我们模拟用户使用插件的测试结果
+- 📖 [使用文档](docs/USAGE.md) - 详细使用说明
+- ⚙️ [环境配置](docs/ENV_CONFIG.md) - 环境变量配置说明
+- 🖥️ [vLLM 服务器设置](docs/VLLM_SERVER_SETUP.md) - vLLM 服务配置指南
 
-### 技术报告
-
-- 📊 [模拟测试报告](docs/EXPERIMENT_SUMMARY.md) - 我们模拟用户使用插件的测试结果
-- 📊 [存储优化报告](docs/STORAGE_OPTIMIZATION_REPORT.md) - 存储效率分析
-- 📈 [基线系统分析](docs/BASELINE_ANALYSIS.md) - 与传统方案对比
-- 🔧 [存储优化实现](docs/STORAGE_OPTIMIZATION_IMPLEMENTATION.md) - 技术实现细节
+> **注意**：开发/测试文档（性能报告、项目状态、实验总结等）已移至 `dev/` 目录，仅供开发者使用。
 - 🧪 [存储优化测试](docs/STORAGE_OPTIMIZATION_TESTING.md) - 测试方法论
 - 📝 [测试覆盖率总结](docs/TEST_COVERAGE_SUMMARY.md) - 测试覆盖率分析
 
