@@ -23,6 +23,10 @@
 - [核心特性](#-核心特性)
 - [性能指标](#-性能指标)
 - [架构设计](#-架构设计)
+- [架构设计决策](#-架构设计决策)
+- [故障案例研究](#-故障案例研究-duplicate-template-name)
+- [性能分析](#-性能分析)
+- [技术标签](#-技术标签)
 - [安装指南](#-安装指南)
 - [快速开始](#-快速开始)
 - [配置说明](#-配置说明)
@@ -191,7 +195,8 @@
                      │
 ┌────────────────────▼────────────────────────────────────┐
 │                 推理层 (Inference)                        │
-│              vLLM - PagedAttention                       │
+│         Client-Server Architecture (HTTP API)            │
+│              vLLM Server - PagedAttention               │
 │         Prefix Caching + KV Cache 优化                   │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -201,11 +206,197 @@
 | 组件 | 技术选型 | 选型理由 |
 |------|---------|---------|
 | **编排框架** | LangGraph | 支持循环、状态持久化和短路控制 |
-| **推理引擎** | vLLM | PagedAttention 提升吞吐量，Prefix Caching 降低首字延迟 |
+| **推理引擎** | vLLM (Client-Server) | PagedAttention 提升吞吐量，Prefix Caching 降低首字延迟，服务化架构避免进程冲突 |
 | **向量数据库** | Qdrant / Chroma | 高性能过滤，Rust 实现（Qdrant）性能优异 |
 | **检索策略** | Hybrid + Rerank | 向量搜索 + 关键词匹配 + 重排序 |
 | **评估框架** | Ragas | LLM-as-a-Judge 可扩展评估方法 |
 | **持久化** | PostgreSQL + Vector | ACID 一致性 + 语义检索 |
+
+---
+
+## 🔧 架构设计决策
+
+### Why Client-Server Architecture for vLLM?
+
+#### ❌ Embedded 模式的问题
+
+**初始方案**：在插件进程中直接 `import vllm` 并初始化 `LLM()` 引擎。
+
+**遇到的问题**：
+
+1. **`AssertionError: duplicate template name`**
+   - **根本原因**：vLLM 使用 `spawn` 方法启动子进程（EngineCore），子进程会重新导入所有模块
+   - **触发条件**：当插件在模块顶层导入 `torch`/`transformers` 时，vLLM 检测到 CUDA 已初始化，被迫使用 `spawn` 而非 `fork`
+   - **错误链**：`spawn` → 重新导入模块 → `@torch.compile` 装饰器在模块级别执行 → PyTorch 模板系统检测到重复注册 → `AssertionError`
+
+2. **Import Side-Effects & CUDA Init Pitfalls**
+   - 插件导入链：`RAGEnhancedAgentMemory` → `LongTermMemory` → `SentenceTransformer` → `torch`
+   - 用户 `import` 插件时，`torch`/CUDA 已被初始化
+   - vLLM 启动时发现环境"被污染"，改变多进程策略（`fork` → `spawn`）
+
+3. **资源冲突与内存管理**
+   - 插件进程和 vLLM 子进程共享 GPU 内存，容易导致 OOM
+   - 进程死锁风险：插件等待 vLLM，vLLM 等待 GPU 资源
+
+#### ✅ Client-Server 架构的优势
+
+**最终方案**：vLLM 作为独立服务运行，插件通过 HTTP API（OpenAI-compatible）调用。
+
+**技术优势**：
+
+1. **彻底解决进程冲突**
+   - 插件进程不导入 `vllm`/`torch`，只使用轻量级 `openai` 客户端
+   - vLLM 服务在独立进程中运行，不受插件导入链影响
+   - 物理隔离，避免 `duplicate template name` 错误
+
+2. **资源管理清晰**
+   - GPU 内存由 vLLM 服务独占管理
+   - 插件可以随时重启，不影响 vLLM 服务
+   - 支持多客户端并发访问同一 vLLM 服务
+
+3. **部署灵活性**
+   - 本地部署：`vllm serve --model <path> --port 8000`
+   - 远程部署：插件连接远程 vLLM 服务
+   - 云端 API：直接使用 DeepSeek/OpenAI 等兼容 API
+
+4. **插件轻量化**
+   - 用户安装插件时无需编译 CUDA
+   - `requirements.txt` 中移除 `vllm`，只需 `openai>=1.0.0`
+   - 启动速度快，依赖少
+
+**实现细节**：
+
+```python
+# src/inference/vllm_inference.py
+class VLLMInference(BaseInference):
+    def __init__(self):
+        # 不再 import vllm，只使用 openai 客户端
+        self.client = OpenAI(
+            base_url=settings.vllm_base_url,  # http://localhost:8000/v1
+            api_key=settings.vllm_api_key or "EMPTY",
+            timeout=settings.vllm_timeout
+        )
+```
+
+---
+
+## 🐛 故障案例研究：duplicate template name
+
+### 问题现象
+
+在插件中直接使用 vLLM 时，出现以下错误：
+
+```
+AssertionError: duplicate template name
+```
+
+错误发生在 vLLM 的子进程（EngineCore_DP0）中。
+
+### 根本原因分析
+
+#### 1. vLLM 的多进程策略
+
+vLLM 使用多进程架构：
+- **主进程**：管理请求队列和调度
+- **子进程（EngineCore）**：执行实际的模型推理
+
+子进程启动方式取决于进程状态：
+- **`fork`**：如果 CUDA 未初始化，使用 `fork`（继承父进程内存）
+- **`spawn`**：如果 CUDA 已初始化，使用 `spawn`（启动全新 Python 解释器）
+
+#### 2. Import Side-Effects 触发 spawn
+
+**问题链**：
+
+```
+用户代码: import RAGEnhancedAgentMemory
+    ↓
+插件 __init__.py: from .core import RAGEnhancedAgentMemory
+    ↓
+core.py: from .memory.long_term import LongTermMemory
+    ↓
+long_term.py: from sentence_transformers import SentenceTransformer
+    ↓
+SentenceTransformer: import torch
+    ↓
+torch: 初始化 CUDA 上下文
+    ↓
+用户代码: from .inference import VLLMInference
+    ↓
+VLLMInference: from vllm import LLM
+    ↓
+vLLM 检测到 CUDA 已初始化 → 使用 spawn 启动子进程
+    ↓
+spawn 子进程重新导入所有模块
+    ↓
+@torch.compile 装饰器在模块级别执行
+    ↓
+PyTorch 模板系统检测到重复注册
+    ↓
+AssertionError: duplicate template name
+```
+
+#### 3. torch.compile 与 spawn 的交互
+
+- `@torch.compile` 在模块导入时注册模板
+- `spawn` 会重新导入模块，导致模板被注册两次
+- PyTorch 的模板系统不允许重复注册
+
+### 解决方案：Client-Server 架构
+
+**核心思路**：物理隔离，插件进程不导入 vLLM。
+
+**效果**：
+- ✅ 插件进程：只导入 `openai`（轻量级 HTTP 客户端）
+- ✅ vLLM 服务：独立进程，干净的 CUDA 环境
+- ✅ 通信方式：HTTP API（OpenAI-compatible）
+- ✅ 结果：彻底避免 `duplicate template name` 错误
+
+---
+
+## ⚡ 性能分析
+
+### 推理性能分解
+
+基于 **NVIDIA RTX 5090 (31GB)** 环境的性能测试：
+
+| 组件 | 延迟 | 说明 |
+|------|------|------|
+| **Embedding** | ~50-100 ms | SentenceTransformer (BAAI/bge-large-zh-v1.5) |
+| **向量检索** | ~10-50 ms | Qdrant 语义搜索（取决于数据库大小） |
+| **重排序** | ~20-50 ms | CrossEncoder (BAAI/bge-reranker-large) |
+| **vLLM 生成** | 210.9 ms (TTFT) | PagedAttention + Prefix Caching |
+| **端到端延迟** | 2109.6 ms | 包含检索 + 生成全流程 |
+
+### vLLM vs HuggingFace Transformers
+
+| 指标 | HuggingFace | vLLM | 提升 |
+|------|-----------|------|------|
+| **首字延迟 (TTFT)** | 380.5 ms | 210.9 ms | **-44.56%** |
+| **端到端延迟** | 3805.4 ms | 2109.6 ms | **-44.56%** |
+| **单请求吞吐量** | 67.3 tokens/s | 101.2 tokens/s | **+50.44%** |
+| **并发吞吐量 (20路)** | 70.3 tokens/s | 925.7 tokens/s | **+1216%** |
+
+**关键发现**：vLLM 的核心优势在于**高并发场景**。20 路并发下，vLLM 总耗时仅增加 1.9%，吞吐量稳定在 **~935 tokens/s**，完美利用 GPU 并行算力。
+
+### 性能优化配置
+
+**vLLM 服务配置**：
+- `gpu_memory_utilization`: 0.7
+- `max_model_len`: 1024
+- `enable_prefix_caching`: True（可选）
+- `enforce_eager`: True（默认禁用 CUDA Graph，确保稳定性）
+
+**优化效果**：
+- ✅ **PagedAttention**：动态 KV cache 管理，支持高并发而不浪费内存
+- ✅ **Prefix Caching**：相似提示复用计算结果，降低延迟（可选启用）
+- ⚠️ **CUDA Graph**：默认禁用（使用 `--enforce-eager`），避免 `duplicate template name` 错误
+
+---
+
+## 🏷️ 技术标签
+
+**Keywords**: `LLM Inference` · `vLLM` · `RAG System` · `CUDA Init` · `Multiprocessing` · `Agent Memory` · `Client-Server Architecture` · `LangGraph` · `Vector Database` · `Semantic Search`
 
 ---
 
@@ -421,6 +612,7 @@ RAGEnhancedAgentMemory/
 - 🖥️ [vLLM 服务器设置](docs/VLLM_SERVER_SETUP.md) - vLLM 服务配置指南
 - 📊 [模拟测试报告](docs/EXPERIMENT_SUMMARY.md) - 我们模拟用户使用插件的测试结果
 - 📈 [性能报告](docs/Performance.md) - 详细的性能基准测试结果
+- 🐛 [故障案例研究](docs/postmortem_vllm_duplicate_template_name.md) - vLLM duplicate template name 错误的完整分析和解决方案
 
 > **注意**：其他开发/测试文档已移至 `dev/` 目录，仅供开发者使用。
 
