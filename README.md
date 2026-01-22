@@ -7,8 +7,8 @@
 [![Test Coverage](https://img.shields.io/badge/Test%20Coverage-80%2B%25-brightgreen)](tests/)
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-success)](docs/PROJECT_STATUS.md)
 
-**企业级 RAG 增强型 Agent 记忆系统**  
-*基于 LangGraph 与 vLLM 的生产化架构*
+**RAG 增强型 Agent 记忆系统**  
+*基于 LangGraph 与 vLLM 的高性能架构*
 
 [特性](#-核心特性) • [快速开始](#-快速开始) • [文档](#-文档) • [性能](#-性能指标) • [贡献](#-贡献指南)
 
@@ -34,7 +34,7 @@
 
 ## 🎯 项目简介
 
-**RAGEnhancedAgentMemory** 是一个企业级的 AI Agent 记忆增强系统，旨在解决长对话场景中的三大核心挑战：
+**RAGEnhancedAgentMemory** 是一个功能强大的 AI Agent 记忆增强系统，旨在解决长对话场景中的三大核心挑战：
 
 | 挑战 | 传统方案 | 我们的解决方案 |
 |------|---------|--------------|
@@ -69,7 +69,7 @@
   - 关键词搜索（精确匹配）
   - 使用 BAAI/bge-reranker-large 重排序
 
-- **⚡ 生产级性能**
+- **⚡ 高性能推理**
   - vLLM PagedAttention 动态 KV cache 管理
   - Prefix Caching 相似提示复用（可选）
   - 默认禁用 CUDA Graph（避免 duplicate template name 错误，保证稳定性）
@@ -139,7 +139,7 @@
 | **单请求吞吐量** | 67.3 tokens/s | **101.2 tokens/s** | **+50.44%** | ✅ |
 | **并发吞吐量 (20路)** | 70.3 tokens/s | **925.7 tokens/s** | **+1216%** | ✅ |
 
-> 📈 **详细性能报告**：参见 [Performance.md](docs/Performance.md) 和 [PROJECT_STATUS.md](docs/PROJECT_STATUS.md)
+> 📈 **详细性能报告**：开发/测试文档已移至 `dev/` 目录，仅供开发者使用。
 
 ---
 
@@ -403,8 +403,6 @@ RAGEnhancedAgentMemory/
 - 🖥️ [vLLM 服务器设置](docs/VLLM_SERVER_SETUP.md) - vLLM 服务配置指南
 
 > **注意**：开发/测试文档（性能报告、项目状态、实验总结等）已移至 `dev/` 目录，仅供开发者使用。
-- 🧪 [存储优化测试](docs/STORAGE_OPTIMIZATION_TESTING.md) - 测试方法论
-- 📝 [测试覆盖率总结](docs/TEST_COVERAGE_SUMMARY.md) - 测试覆盖率分析
 
 ### 设置指南
 

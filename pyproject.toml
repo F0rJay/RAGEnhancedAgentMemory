@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rag-enhanced-agent-memory"
 version = "0.1.0"
-description = "企业级 RAG 增强型 Agent 记忆系统：基于 LangGraph 与 vLLM 的生产化架构"
+description = "RAG 增强型 Agent 记忆系统：基于 LangGraph 与 vLLM 的高性能架构"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
