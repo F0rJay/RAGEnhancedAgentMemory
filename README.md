@@ -348,7 +348,7 @@ memory = RAGEnhancedAgentMemory(
 )
 ```
 
-> 📖 **详细配置说明**：参见 [docs/ENV_CONFIG.md](docs/ENV_CONFIG.md)
+> 📖 **配置说明**：基本配置请参考 `env.example` 文件，详细配置说明请查看开发文档。
 
 ---
 
@@ -399,7 +399,6 @@ RAGEnhancedAgentMemory/
 - 🚀 [快速开始指南](QUICKSTART.md) - 5 分钟快速上手
 - 🔌 [插件使用指南](docs/PLUGIN_USAGE.md) - 开发者集成指南
 - 📖 [使用文档](docs/USAGE.md) - 详细使用说明
-- ⚙️ [环境配置](docs/ENV_CONFIG.md) - 环境变量配置说明
 - 🖥️ [vLLM 服务器设置](docs/VLLM_SERVER_SETUP.md) - vLLM 服务配置指南
 - 📊 [模拟测试报告](docs/EXPERIMENT_SUMMARY.md) - 我们模拟用户使用插件的测试结果
 - 📈 [性能报告](docs/Performance.md) - 详细的性能基准测试结果
@@ -408,9 +407,10 @@ RAGEnhancedAgentMemory/
 
 ### 设置指南
 
-- 🔧 [环境变量配置](docs/ENV_CONFIG.md) - 环境变量参考
 - 🐳 [Docker 设置](docs/DOCKER_SETUP.md) - Docker 部署指南
-- 🗄️ [PostgreSQL 设置](docs/POSTGRESQL_SETUP.md) - 数据库设置指南
+- 🔍 [镜像源设置](docs/MIRROR_SETUP.md) - HuggingFace 镜像配置
+
+> **注意**：详细的环境变量配置和 PostgreSQL 设置文档已移至 `dev/` 目录，仅供开发者参考。
 
 ---
 
