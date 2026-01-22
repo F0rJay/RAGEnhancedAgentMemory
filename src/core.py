@@ -130,14 +130,27 @@ class RAGEnhancedAgentMemory:
         )
 
         # 检查点保存器（用于 LangGraph）
+        # 注意：当前使用 MemorySaver()（内存检查点），数据保存在内存中，不会写入文件系统
+        # 因此 checkpoints 目录会一直是空的
+        # 检查点的作用：
+        # 1. 状态持久化：保存 Agent 的执行状态（chat_history、documents 等）
+        # 2. 会话恢复：可以从上次中断的地方继续执行
+        # 3. 多会话管理：支持多个并发会话，每个会话有独立的 thread_id
+        # 4. 调试和监控：可以查看历史执行状态
+        # 
+        # 如果需要文件系统持久化，可以改用 SqliteSaver 或 PostgresSaver：
+        #   from langgraph.checkpoint.sqlite import SqliteSaver
+        #   self.checkpointer = SqliteSaver.from_conn_string(f"sqlite:///{checkpoint_path}/checkpoints.db")
         self.checkpointer = None
         if LANGGRAPH_CHECKPOINT_AVAILABLE:
             try:
                 checkpoint_path = Path(self.checkpoint_dir)
                 checkpoint_path.mkdir(parents=True, exist_ok=True)
-                # 使用内存检查点（简化版，实际可用文件系统检查点）
+                # 使用内存检查点（数据保存在内存中，程序退出后丢失）
+                # 适合单次运行、不需要持久化的场景
                 self.checkpointer = MemorySaver()
-                logger.info(f"检查点系统初始化: {checkpoint_path}")
+                logger.info(f"检查点系统初始化（内存模式）: {checkpoint_path}")
+                logger.debug("注意：MemorySaver 不会写入文件系统，checkpoints 目录会保持为空")
             except Exception as e:
                 logger.warning(f"检查点系统初始化失败: {e}")
 
@@ -456,6 +469,18 @@ class RAGEnhancedAgentMemory:
         logger.info(f"归档了 {len(archived_ids)} 条记忆到长期记忆库")
         return archived_ids
 
+    def close(self) -> None:
+        """
+        关闭所有资源连接
+        
+        应该在程序退出前调用，以避免退出时的清理警告
+        """
+        try:
+            if hasattr(self, 'long_term_memory') and self.long_term_memory:
+                self.long_term_memory.close()
+        except Exception as e:
+            logger.debug(f"清理资源时出错（可忽略）: {e}")
+    
     def get_context_for_llm(self, max_tokens: Optional[int] = None) -> str:
         """
         获取格式化的上下文字符串，用于 LLM 输入

@@ -234,81 +234,44 @@ def test_vllm_inference(
         测试结果
     """
     try:
-        from src.inference.vllm_inference import VLLMInference
+        from src.inference import VLLMInference
     except ImportError as e:
         logger.error(f"无法导入 vLLM 推理模块: {e}")
         return {"error": str(e)}
     
     logger.info("=" * 80)
-    logger.info("vLLM 优化推理测试（PagedAttention + Prefix Caching）")
+    logger.info("vLLM 优化推理测试（Client-Server 架构）")
+    logger.info("=" * 80)
+    logger.info("注意: vLLM 现在作为独立服务运行，配置参数在服务启动时设置")
     logger.info("=" * 80)
     
     try:
-        # 检查 GPU 内存状态（初始化前）
-        try:
-            import torch
-            if torch.cuda.is_available():
-                allocated = torch.cuda.memory_allocated() / 1024**3
-                reserved = torch.cuda.memory_reserved() / 1024**3
-                total_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
-                free_memory = total_memory - reserved
-                logger.info("=" * 80)
-                logger.info("GPU 内存状态检查（vLLM 初始化前）")
-                logger.info("=" * 80)
-                logger.info(f"  GPU 总内存: {total_memory:.2f} GB")
-                logger.info(f"  已分配内存: {allocated:.2f} GB")
-                logger.info(f"  已保留内存: {reserved:.2f} GB")
-                logger.info(f"  可用内存: {free_memory:.2f} GB")
-                logger.info("=" * 80)
-                if reserved > 1.0:
-                    logger.warning(f"⚠️  检测到 GPU 仍有 {reserved:.2f} GB 被保留")
-                    logger.warning("   这可能会影响 vLLM 的内存分配")
-                if free_memory < 18.0:
-                    logger.warning(f"⚠️  可用内存 {free_memory:.2f} GB 可能不足以加载 7B 模型（需要 ~15GB）")
-        except Exception as e:
-            logger.warning(f"无法检查 GPU 内存状态: {e}")
-        
-        # 初始化推理引擎
-        logger.info("\n初始化 vLLM 推理引擎...")
+        # 初始化推理引擎（Client-Server 架构）
+        logger.info("\n初始化 vLLM 推理引擎（客户端）...")
         start_init = time.time()
         
-        # 尝试初始化，显式使用更低的配置以确保内存充足
-        # 对于 31GB GPU，模型本身需要 ~14.25GB，需要非常保守的配置
-        # 注意：gpu_memory_utilization 是 vLLM 尝试使用的总 GPU 内存比例
-        # 但模型权重会先占用 ~14.25GB，剩下的才是 KV cache
+        # Client-Server 架构：只需要指定模型名称
+        # 其他参数（gpu_memory_utilization, max_model_len 等）在启动 vLLM 服务时设置
         try:
-            engine = VLLMInference(
-                model_path=model_path,
-                # 关键：gpu_memory_utilization 是 vLLM 可使用的总 GPU 内存比例
-                # 模型权重会先占用 ~14.25GB，剩下的才是 KV cache
-                # 31GB * 0.7 = 21.7GB，模型 14.25GB，剩下 ~7.45GB 给 KV cache
-                gpu_memory_utilization=0.7,  # 提高到 0.7，确保有足够空间加载模型和 KV cache
-                max_model_len=256,  # 降低最大长度以节省 KV cache
-                enable_prefix_caching=True,  # 启用前缀缓存优化
-                enforce_eager=False,  # 启用 CUDA graph 优化以提升性能  
-            )
-        except Exception as e:
-            # 如果内存不足，尝试禁用 prefix caching 以节省内存
-            if "memory" in str(e).lower() or "cache" in str(e).lower():
-                logger.warning("标准配置失败（内存不足），尝试禁用 prefix caching 以节省内存...")
-                try:
-                    engine = VLLMInference(
-                        model_path=model_path,
-                        gpu_memory_utilization=0.65,  # 稍微降低，但仍需足够加载模型
-                        max_model_len=128,  # 最小化 KV cache
-                        enable_prefix_caching=False,  # 禁用前缀缓存以节省内存
-                    )
-                    logger.info("✓ 已禁用 prefix caching，成功初始化 vLLM")
-                except Exception as e2:
-                    logger.error(f"即使禁用 prefix caching 后仍然失败: {e2}")
-                    raise RuntimeError(
-                        "vLLM 初始化失败：GPU 内存不足。"
-                        "建议：1) 确保基线测试后 GPU 内存已完全释放；"
-                        "2) 降低 gpu_memory_utilization 到 0.3 或更低；"
-                        "3) 降低 max_model_len 到 256 或更低"
-                    ) from e2
+            if model_path:
+                engine = VLLMInference(model=model_path)
             else:
-                raise
+                engine = VLLMInference()
+            logger.info(f"✓ 已连接到 vLLM 服务: {engine.base_url}")
+            logger.info(f"  模型: {engine.model}")
+        except Exception as e:
+            error_str = str(e).lower()
+            if "connection" in error_str or "refused" in error_str:
+                logger.error("❌ 无法连接到 vLLM 服务")
+                logger.error("   请确保已启动 vLLM 服务:")
+                logger.error("   python scripts/launch_vllm_server.py --model <model_path>")
+                logger.error("   或配置云端 API 地址（如 DeepSeek API）")
+            elif "model" in error_str and "not found" in error_str:
+                logger.error(f"❌ 模型 '{model_path}' 未找到或服务不支持")
+                logger.error("   请确保 vLLM 服务启动时指定的模型与配置一致")
+            else:
+                logger.error(f"❌ vLLM 初始化失败: {e}")
+            raise
         
         init_time = time.time() - start_init
         logger.info(f"初始化耗时: {init_time:.2f} 秒")
@@ -500,77 +463,41 @@ def test_vllm_concurrent(
         测试结果
     """
     try:
-        from src.inference.vllm_inference import VLLMInference
+        from src.inference import VLLMInference
     except ImportError as e:
         logger.error(f"无法导入 vLLM 推理模块: {e}")
+        logger.error("提示: 请确保已安装 openai 库: pip install openai>=1.0.0")
         return {"error": str(e)}
     
     logger.info("=" * 80)
-    logger.info(f"vLLM 并发测试（真正并行处理，并发数: {concurrency}）")
+    logger.info(f"vLLM 并发测试（Client-Server 架构，并发数: {concurrency}）")
+    logger.info("=" * 80)
+    logger.info("注意: vLLM 现在作为独立服务运行，配置参数在服务启动时设置")
     logger.info("=" * 80)
     
     try:
-        # 检查可用 GPU 内存（使用 CUDA 实际内存，而不是 PyTorch 统计）
+        # 初始化推理引擎（Client-Server 架构）
+        logger.info("初始化 vLLM 推理引擎（客户端）...")
         try:
-            import torch
-            if torch.cuda.is_available():
-                # 获取 CUDA 设备实际的内存使用情况（更准确）
-                free_mem, total_mem = torch.cuda.mem_get_info(0)
-                actual_free_gb = free_mem / 1024**3
-                actual_total_gb = total_mem / 1024**3
-                actual_used_gb = (total_mem - free_mem) / 1024**3
-                
-                # PyTorch 统计（可能不准确）
-                total_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
-                reserved = torch.cuda.memory_reserved() / 1024**3
-                pytorch_free = total_memory - reserved
-                
-                logger.info(f"初始化前 GPU 内存状态:")
-                logger.info(f"  CUDA 实际可用: {actual_free_gb:.2f} GB / {actual_total_gb:.2f} GB")
-                logger.info(f"  CUDA 实际已用: {actual_used_gb:.2f} GB")
-                logger.info(f"  PyTorch 统计可用: {pytorch_free:.2f} GB (可能不准确)")
-                logger.info("")
-                
-                # 根据 CUDA 实际可用内存自动调整 gpu_memory_utilization
-                # 模型需要约 14.25GB，需要确保有足够空间
-                target_memory = 0.7 * actual_total_gb
-                if actual_free_gb < target_memory:
-                    # 降低内存使用率
-                    adjusted_util = (actual_free_gb - 1.0) / actual_total_gb  # 保留 1GB 缓冲
-                    adjusted_util = max(0.4, min(0.7, adjusted_util))  # 限制在 0.4-0.7 之间
-                    logger.warning(f"CUDA 实际可用内存不足，降低 gpu_memory_utilization: 0.7 → {adjusted_util:.2f}")
-                    logger.warning(f"  (目标需要 {target_memory:.2f} GB，实际可用 {actual_free_gb:.2f} GB)")
-                    gpu_mem_util = adjusted_util
-                else:
-                    gpu_mem_util = 0.7
-                    logger.info(f"✓ 使用标准配置: gpu_memory_utilization={gpu_mem_util}")
-        except Exception as e:
-            logger.warning(f"无法检查 GPU 内存，使用默认配置: {e}")
-            gpu_mem_util = 0.7
-        
-        # 初始化推理引擎（尝试标准配置，失败则降级）
-        logger.info("初始化 vLLM 推理引擎...")
-        try:
-            engine = VLLMInference(
-                model_path=model_path,
-                gpu_memory_utilization=gpu_mem_util,
-                max_model_len=256,
-                enable_prefix_caching=True,
-                enforce_eager=False,
-            )
-        except Exception as e:
-            if "memory" in str(e).lower():
-                logger.warning("标准配置失败（内存不足），尝试降低配置...")
-                engine = VLLMInference(
-                    model_path=model_path,
-                    gpu_memory_utilization=0.5,  # 降低到 0.5
-                    max_model_len=128,  # 降低最大长度
-                    enable_prefix_caching=False,  # 禁用前缀缓存
-                    enforce_eager=True,  # 启用 enforce_eager 以节省内存
-                )
-                logger.info("✓ 使用降低的配置成功初始化 vLLM")
+            if model_path:
+                engine = VLLMInference(model=model_path)
             else:
-                raise
+                engine = VLLMInference()
+            logger.info(f"✓ 已连接到 vLLM 服务: {engine.base_url}")
+            logger.info(f"  模型: {engine.model}")
+        except Exception as e:
+            error_str = str(e).lower()
+            if "connection" in error_str or "refused" in error_str:
+                logger.error("❌ 无法连接到 vLLM 服务")
+                logger.error("   请确保已启动 vLLM 服务:")
+                logger.error("   python scripts/launch_vllm_server.py --model <model_path>")
+                logger.error("   或配置云端 API 地址（如 DeepSeek API）")
+            elif "model" in error_str and "not found" in error_str:
+                logger.error(f"❌ 模型 '{model_path}' 未找到或服务不支持")
+                logger.error("   请确保 vLLM 服务启动时指定的模型与配置一致")
+            else:
+                logger.error(f"❌ vLLM 初始化失败: {e}")
+            raise
         
         # 使用 vLLM 的原生并发支持（一次性发送所有请求，vLLM 会自动并行处理）
         logger.info(f"\n开始并发处理 {len(prompts)} 个请求（vLLM 自动并行，并发数: {concurrency}）...")

@@ -7,7 +7,9 @@
 
 ---
 
-本项目基于 **NVIDIA RTX 5090 (31GB)** 环境，针对 **推理延迟** 与 **存储效能** 进行了深度工程优化。通过引入 vLLM 推理引擎（**PagedAttention + Prefix Caching + CUDA Graph**）与自研的分层记忆过滤算法，实现了生产级的性能表现。
+本项目基于 **NVIDIA RTX 5090 (31GB)** 环境，针对 **推理延迟** 与 **存储效能** 进行了深度工程优化。通过引入 vLLM 推理引擎（**PagedAttention + Prefix Caching**）与自研的分层记忆过滤算法，实现了生产级的性能表现。
+
+> **注意**：为了确保系统稳定性，默认禁用 CUDA Graph 优化（使用 `--enforce-eager`），避免 `duplicate template name` 错误。如需启用 CUDA Graph 优化，可在启动 vLLM 服务时使用 `--no-enforce-eager` 参数。
 
 ![Latency](https://img.shields.io/badge/TTFT_(首字延迟)-211ms-brightgreen?style=flat-square&logo=nvidia)
 ![Throughput](https://img.shields.io/badge/Throughput-940_tokens%2Fs-blue?style=flat-square&logo=speedtest)
@@ -18,7 +20,9 @@
 
 ## ⚡ 1. 推理加速 (Inference Acceleration)
 
-集成 **vLLM** 引擎，利用 **PagedAttention**、**Prefix Caching** 与 **CUDA Graph** 技术，突破了原生 Transformers 的性能瓶颈。
+集成 **vLLM** 引擎，利用 **PagedAttention**、**Prefix Caching** 技术，突破了原生 Transformers 的性能瓶颈。
+
+> **注意**：默认禁用 CUDA Graph 优化以确保系统稳定性。如需启用，可在启动 vLLM 服务时使用 `--no-enforce-eager` 参数。
 
 ### 📊 单请求性能 (Single Request Performance)
 
@@ -64,13 +68,13 @@ gantt
 
 **vLLM 配置参数**:
 - `gpu_memory_utilization`: 0.7 (31GB GPU 使用 21.95GB)
-- `max_model_len`: 256 (平衡 KV cache 内存)
-- `enable_prefix_caching`: True (前缀缓存优化)
-- `enforce_eager`: False (启用 CUDA Graph 优化)
+- `max_model_len`: 1024 (平衡 KV cache 内存)
+- `enable_prefix_caching`: True (前缀缓存优化，可选)
+- `enforce_eager`: True (默认禁用 CUDA Graph，确保稳定性)
 
 **优化效果**:
-- ✅ **Prefix Caching**: 对相似/重复提示，可复用计算结果，降低延迟
-- ✅ **CUDA Graph**: 首次请求构建 Graph，后续请求显著加速
+- ✅ **Prefix Caching**: 对相似/重复提示，可复用计算结果，降低延迟（可选启用）
+- ⚠️ **CUDA Graph**: 默认禁用（使用 `--enforce-eager`），避免 `duplicate template name` 错误。如需启用，可在启动 vLLM 服务时使用 `--no-enforce-eager` 参数
 - ✅ **PagedAttention**: 动态 KV cache 管理，支持高并发而不浪费内存
 
 ---

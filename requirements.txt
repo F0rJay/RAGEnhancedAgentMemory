@@ -4,10 +4,11 @@ langchain-core>=0.3.0
 langchain-community>=0.3.0
 
 # 推理引擎
-# vLLM 需要 CUDA >= 11.8 环境（推荐使用 GPU）
-# 如果没有 GPU 环境，安装可能会失败，此时可以注释掉或使用云端 API
-# 如果需要安装 vLLM，确保已安装 CUDA Toolkit 和相应的驱动
-vllm>=0.6.0
+# vLLM 现在作为独立服务运行，插件通过 OpenAI-compatible API 调用
+# 用户需要单独安装 vLLM（用于启动服务）：
+#   pip install vllm>=0.6.0
+# 插件只需要 openai 库（轻量级，无需 CUDA）
+openai>=1.0.0
 
 # 向量数据库
 qdrant-client>=1.7.0

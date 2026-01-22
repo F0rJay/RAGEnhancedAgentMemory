@@ -1,40 +1,30 @@
 """
-vLLM 推理模块
+vLLM 推理模块（Client-Server 架构）
 
-使用 vLLM 进行高性能 LLM 推理，支持：
-- PagedAttention 优化
-- Prefix Caching（前缀缓存）
-- 并发请求处理
+使用 vLLM 作为独立服务，插件通过 OpenAI-compatible API 调用。
+这彻底解决了 duplicate template name 错误，因为插件进程不再导入 vLLM/torch。
+
+使用方式：
+1. 用户启动 vLLM 服务（独立进程）：
+   vllm serve Qwen/Qwen2.5-7B-Instruct --port 8000
+
+2. 插件作为客户端连接服务：
+   from src.inference import VLLMInference
+   engine = VLLMInference()
+   response, metrics = engine.generate("Hello")
 """
 
 import time
 import os
 from typing import List, Dict, Any, Optional, Tuple
-from pathlib import Path
-
-# 在导入 vllm 之前设置镜像源（如果配置了）
-try:
-    from ..config import get_settings
-    settings = get_settings()
-    if settings.hf_endpoint:
-        os.environ["HF_ENDPOINT"] = settings.hf_endpoint
-        # 尝试使用 huggingface_hub 的 set_endpoint（如果可用）
-        try:
-            from huggingface_hub import set_endpoint
-            set_endpoint(settings.hf_endpoint)
-        except ImportError:
-            pass
-except Exception:
-    pass
+import requests
 
 try:
-    from vllm import LLM, SamplingParams
-    from vllm.engine.arg_utils import AsyncEngineArgs
-    VLLM_AVAILABLE = True
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
 except ImportError:
-    VLLM_AVAILABLE = False
-    LLM = None
-    SamplingParams = None
+    OPENAI_AVAILABLE = False
+    OpenAI = None
 
 try:
     from loguru import logger
@@ -46,127 +36,110 @@ from ..config import get_settings
 
 
 class VLLMInference:
-    """vLLM 推理引擎"""
+    """
+    vLLM 推理引擎（客户端模式）
+    
+    通过 OpenAI-compatible API 连接到独立的 vLLM 服务。
+    插件进程不再导入 vLLM/torch，彻底避免 duplicate template name 错误。
+    """
     
     def __init__(
         self,
-        model_path: Optional[str] = None,
-        quantization: Optional[str] = None,
-        gpu_memory_utilization: Optional[float] = None,
-        max_model_len: Optional[int] = None,
-        enable_prefix_caching: bool = True,
-        enforce_eager: Optional[bool] = None,
+        base_url: Optional[str] = None,
+        model: Optional[str] = None,
+        model_path: Optional[str] = None,  # 向后兼容：支持旧参数名
+        api_key: Optional[str] = None,
+        timeout: Optional[float] = None,
         **kwargs
     ):
         """
-        初始化 vLLM 推理引擎
+        初始化 vLLM 推理引擎（客户端）
         
         Args:
-            model_path: 模型路径（本地路径或 HuggingFace 模型 ID）
-            quantization: 量化方法 ('awq' 或 'gptq')，如果使用量化模型
-            gpu_memory_utilization: GPU 内存使用率 (0.0-1.0)
-            max_model_len: 最大模型长度
-            enable_prefix_caching: 是否启用前缀缓存
+            base_url: vLLM 服务地址（默认从配置读取）
+            model: 模型名称（默认从配置读取）
+            model_path: [已废弃] 模型路径，等同于 model 参数（向后兼容）
+            api_key: API 密钥（默认从配置读取，本地运行通常为 "EMPTY"）
+            timeout: 请求超时时间（秒，默认从配置读取）
         """
-        if not VLLM_AVAILABLE:
+        if not OPENAI_AVAILABLE:
             raise ImportError(
-                "vLLM 未安装。请运行: pip install vllm>=0.6.0"
+                "openai 库未安装。请运行: pip install openai>=1.0.0"
             )
         
         settings = get_settings()
         
-        # 配置 HuggingFace 镜像源（如果设置了）
-        # 注意：环境变量已在文件顶部设置，这里只是记录日志
-        if settings.hf_endpoint:
-            logger.info(f"使用 HuggingFace 镜像源: {settings.hf_endpoint}")
+        # 向后兼容：支持 model_path 参数（等同于 model）
+        if model_path and not model:
+            model = model_path
+            logger.warning(
+                "⚠️ [VLLM] model_path 参数已废弃，请使用 model 参数"
+            )
         
         # 使用配置或参数
-        self.model_path = model_path or settings.vllm_model_path
-        if not self.model_path:
+        self.base_url = base_url or settings.vllm_base_url
+        self.model = model or settings.vllm_model
+        self.api_key = api_key if api_key is not None else settings.vllm_api_key
+        self.timeout = timeout if timeout is not None else settings.vllm_timeout
+        
+        # 兼容旧配置（向后兼容）
+        if not self.model and settings.vllm_model_path:
+            self.model = settings.vllm_model_path
+            logger.warning(
+                "⚠️ [VLLM] 检测到使用已废弃的 VLLM_MODEL_PATH 配置，"
+                "请改用 VLLM_MODEL 和 VLLM_BASE_URL"
+            )
+        
+        if not self.model:
             raise ValueError(
-                "未指定模型路径。请在 .env 文件中设置 VLLM_MODEL_PATH 或传递 model_path 参数"
+                "未指定模型名称。请在 .env 文件中设置 VLLM_MODEL 或传递 model 参数"
             )
         
-        # 处理相对路径（仅对本地路径）
-        if not self.model_path.startswith("/") and "/" not in self.model_path:
-            # 可能是 HuggingFace 模型 ID，不处理
-            pass
-        elif self.model_path.startswith("./") or not Path(self.model_path).is_absolute():
-            project_root = Path(__file__).parent.parent.parent
-            abs_path = (project_root / self.model_path).resolve()
-            if abs_path.exists():
-                self.model_path = str(abs_path)
-        
-        # 量化方法（仅通过参数或模型路径自动检测）
-        # 如果模型路径包含 AWQ 或 GPTQ，自动检测
-        if quantization:
-            self.quantization = quantization
-        elif "awq" in self.model_path.lower():
-            self.quantization = "awq"
-            logger.info("检测到模型路径包含 'awq'，自动启用 AWQ 量化")
-        elif "gptq" in self.model_path.lower():
-            self.quantization = "gptq"
-            logger.info("检测到模型路径包含 'gptq'，自动启用 GPTQ 量化")
-        else:
-            self.quantization = None
-        
-        self.gpu_memory_utilization = (
-            gpu_memory_utilization 
-            if gpu_memory_utilization is not None 
-            else settings.vllm_gpu_memory_utilization
+        # 初始化 OpenAI 客户端
+        self.client = OpenAI(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            timeout=self.timeout,
         )
-        self.max_model_len = (
-            max_model_len 
-            if max_model_len is not None 
-            else settings.vllm_max_model_len
-        )
-        self.enable_prefix_caching = enable_prefix_caching
         
-        logger.info(f"初始化 vLLM 推理引擎...")
-        logger.info(f"  模型路径: {self.model_path}")
-        if self.quantization:
-            logger.info(f"  量化方法: {self.quantization.upper()}")
-        logger.info(f"  GPU 内存使用率: {self.gpu_memory_utilization}")
-        logger.info(f"  最大模型长度: {self.max_model_len}")
-        logger.info(f"  前缀缓存: {'启用' if enable_prefix_caching else '禁用'}")
+        logger.info(f"🚀 [VLLM Client] 已连接到推理服务: {self.base_url}")
+        logger.info(f"   模型: {self.model}")
         
-        # 处理 enforce_eager 参数
-        # 默认禁用 enforce_eager（False）以启用 CUDA graph 优化，提升性能
-        # 只有在内存不足时才需要设置为 True 以节省内存
-        enforce_eager_value = enforce_eager if enforce_eager is not None else False
-        logger.info(f"  CUDA graph 优化: {'禁用' if enforce_eager_value else '启用'}")
+        # 健康检查
+        self._health_check()
+    
+    def _health_check(self) -> None:
+        """
+        检查 vLLM 服务是否可用
         
+        Raises:
+            RuntimeError: 如果服务不可用
+        """
         try:
-            # 初始化 vLLM
-            # 注意：如果 GPU 内存不足，可以降低 gpu_memory_utilization 或 max_model_len
-            # 也可以尝试使用 enforce_eager=True 来禁用 CUDA graph 以节省内存
-            llm_kwargs = {
-                "model": self.model_path,
-                "gpu_memory_utilization": self.gpu_memory_utilization,
-                "max_model_len": self.max_model_len,
-                "enable_prefix_caching": enable_prefix_caching,
-                "trust_remote_code": True,  # Qwen 模型需要
-                "disable_log_stats": True,  # 禁用日志统计以节省内存
-                "enforce_eager": enforce_eager_value,  # False 启用 CUDA graph 优化，True 禁用以节省内存
-            }
+            # 尝试调用 /v1/models 端点
+            response = self.client.models.list()
+            available_models = [model.id for model in response.data]
             
-            # 如果指定了量化方法，添加到参数中
-            if self.quantization:
-                llm_kwargs["quantization"] = self.quantization
-            
-            self.llm = LLM(**llm_kwargs, **kwargs)
-            
-            # 采样参数
-            self.sampling_params = SamplingParams(
-                temperature=0.7,
-                top_p=0.9,
-                max_tokens=512,
-            )
-            
-            logger.info("✓ vLLM 推理引擎初始化成功")
+            if self.model not in available_models:
+                logger.warning(
+                    f"⚠️ [VLLM Client] 模型 '{self.model}' 不在可用模型列表中"
+                )
+                logger.warning(f"   可用模型: {available_models}")
+                logger.warning(
+                    "   请确保 vLLM server 启动时指定的模型名称与配置一致"
+                )
+            else:
+                logger.info(f"✓ [VLLM Client] 服务健康检查通过")
         except Exception as e:
-            logger.error(f"vLLM 初始化失败: {e}")
-            raise
+            error_msg = str(e).lower()
+            if "connection" in error_msg or "refused" in error_msg:
+                logger.error("❌ [VLLM Client] 无法连接到 vLLM 服务")
+                logger.error("   请确保已启动 vLLM 服务：")
+                logger.error("   vllm serve Qwen/Qwen2.5-7B-Instruct --port 8000")
+                logger.error("   或使用其他端口（需在 .env 中设置 VLLM_BASE_URL）")
+            else:
+                logger.warning(f"⚠️ [VLLM Client] 健康检查失败: {e}")
+                logger.warning("   服务可能仍在启动中，将继续尝试...")
     
     def generate(
         self,
@@ -184,64 +157,94 @@ class VLLMInference:
             system_prompt: 系统提示（可选）
             max_tokens: 最大生成 token 数
             temperature: 采样温度
-            **kwargs: 其他采样参数
+            **kwargs: 其他采样参数（top_p, top_k 等）
         
         Returns:
             (生成的文本, 性能指标)
         """
-        # 构建完整提示
+        # 构造消息列表
+        messages = []
         if system_prompt:
-            full_prompt = f"{system_prompt}\n\n用户: {prompt}\n助手: "
-        else:
-            full_prompt = prompt
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
         
-        # 更新采样参数
-        sampling_params = self.sampling_params
-        if max_tokens is not None or temperature is not None or kwargs:
-            sampling_params = SamplingParams(
-                temperature=temperature if temperature is not None else self.sampling_params.temperature,
-                top_p=kwargs.get("top_p", self.sampling_params.top_p),
-                max_tokens=max_tokens if max_tokens is not None else self.sampling_params.max_tokens,
-            )
+        # 准备请求参数
+        # 估算输入 tokens 数量（粗略估计：中文约 1.5 tokens/字符，英文约 0.5 tokens/字符）
+        # 为了安全，使用更保守的估计：2 tokens/字符（混合文本）
+        total_input_text = ""
+        for msg in messages:
+            total_input_text += msg.get("content", "")
+        
+        # 粗略估算输入 tokens（保守估计：2 tokens/字符）
+        estimated_input_tokens = int(len(total_input_text) * 2)
+        
+        # vLLM 服务的 max_model_len 默认是 1024（从配置读取，但这里使用默认值）
+        # 实际应该从服务端获取，但为了简化，使用 1024 作为默认值
+        max_model_len = 1024  # 这是 vLLM 服务启动时的 max_model_len
+        
+        # 计算可用的 max_tokens
+        available_tokens = max_model_len - estimated_input_tokens - 10  # 留 10 tokens 缓冲
+        
+        # 设置默认 max_tokens（max_model_len=1024 时，可以设置更大的默认值）
+        default_max_tokens = min(512, max(50, available_tokens))  # 至少 50，最多 512，但不能超过可用值
+        
+        if max_tokens is None:
+            max_tokens = default_max_tokens
+        else:
+            # 确保 max_tokens 不会超过可用值，但允许最大到 512
+            max_tokens = min(max_tokens, min(512, available_tokens))
+        
+        # 如果计算出的 max_tokens 太小，至少设为 50
+        max_tokens = max(50, max_tokens)
+        
+        logger.debug(f"输入 tokens 估算: {estimated_input_tokens}, 可用 tokens: {available_tokens}, 设置 max_tokens: {max_tokens}")
+        
+        request_params = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature if temperature is not None else 0.7,
+            "max_tokens": max_tokens,
+        }
+        
+        # 添加其他参数
+        if "top_p" in kwargs:
+            request_params["top_p"] = kwargs["top_p"]
+        if "top_k" in kwargs:
+            request_params["top_k"] = kwargs["top_k"]
         
         # 生成（测量延迟）
         start_time = time.time()
         first_token_time = None
         
         try:
-            # vLLM 生成
-            # 注意：首次生成可能需要较长时间进行 prefill，这是正常的
-            logger.debug(f"开始生成，提示长度: {len(full_prompt)} 字符")
-            outputs = self.llm.generate([full_prompt], sampling_params)
+            logger.debug(f"开始生成，提示长度: {len(prompt)} 字符")
+            logger.debug(f"请求参数: model={self.model}, max_tokens={max_tokens}, timeout={self.timeout}")
+            
+            # 调用 OpenAI API（注意：首次推理可能需要较长时间预热）
+            logger.info(f"⏳ [VLLM Client] 正在生成（首次推理可能需要预热，请耐心等待...）")
+            response = self.client.chat.completions.create(**request_params)
+            
             generation_time = time.time() - start_time
             logger.debug(f"生成完成，耗时: {generation_time:.2f} 秒")
             
             # 提取结果
-            if outputs and len(outputs) > 0:
-                output = outputs[0]
-                generated_text = output.outputs[0].text
+            if response.choices and len(response.choices) > 0:
+                generated_text = response.choices[0].message.content
                 
-                # 尝试从 vLLM 的 metadata 中获取时间信息
-                # vLLM 的 RequestOutput 包含 metrics
-                if hasattr(output, 'metrics'):
-                    # 获取首次 token 时间（如果有）
-                    if hasattr(output.metrics, 'time_to_first_token'):
-                        ttft = output.metrics.time_to_first_token / 1000.0  # 转换为秒
-                    elif hasattr(output.metrics, 'ttft'):
-                        ttft = output.metrics.ttft / 1000.0
-                    else:
-                        # 使用首次输出时间作为近似
-                        # 注意：这是不准确的，但比总时间好
-                        ttft = generation_time * 0.1  # 粗略估计：首次 token 约占总时间的 10%
+                # 计算 tokens（如果可用）
+                tokens_generated = 0
+                if hasattr(response, 'usage') and response.usage:
+                    tokens_generated = response.usage.completion_tokens or 0
                 else:
-                    # 如果没有 metrics，使用粗略估计
-                    # 对于 AWQ 模型，prefill 阶段通常占用较长时间
-                    # 我们使用总时间的 15-20% 作为 TTFT 的估计
-                    ttft = generation_time * 0.15  # 粗略估计
+                    # 粗略估计：平均每个字符约 0.25 tokens（中文）或 0.5 tokens（英文）
+                    tokens_generated = int(len(generated_text) * 0.4)
                 
                 # 计算吞吐量
-                tokens_generated = len(output.outputs[0].token_ids)
                 tokens_per_second = tokens_generated / generation_time if generation_time > 0 else 0
+                
+                # 估算 TTFT（首次 token 延迟）
+                # OpenAI API 不直接提供 TTFT，我们使用总时间的 10-15% 作为估计
+                ttft = generation_time * 0.12  # 粗略估计
                 
                 metrics = {
                     "ttft": ttft,
@@ -255,7 +258,16 @@ class VLLMInference:
                 raise ValueError("生成结果为空")
         
         except Exception as e:
-            logger.error(f"生成失败: {e}")
+            error_msg = str(e).lower()
+            if "connection" in error_msg or "refused" in error_msg:
+                logger.error("❌ [VLLM Client] 无法连接到 vLLM 服务")
+                logger.error("   请确保已启动 vLLM 服务：")
+                logger.error("   vllm serve Qwen/Qwen2.5-7B-Instruct --port 8000")
+            elif "timeout" in error_msg:
+                logger.error(f"❌ [VLLM Client] 请求超时（{self.timeout} 秒）")
+                logger.error("   可能是模型响应太慢，尝试增加 VLLM_TIMEOUT 或减少 max_tokens")
+            else:
+                logger.error(f"❌ [VLLM Client] 生成失败: {e}")
             raise
     
     def generate_batch(
@@ -275,55 +287,104 @@ class VLLMInference:
         Returns:
             生成结果列表
         """
-        # 构建完整提示
-        if system_prompt:
-            full_prompts = [f"{system_prompt}\n\n用户: {p}\n助手: " for p in prompts]
-        else:
-            full_prompts = prompts
-        
-        # 更新采样参数
-        sampling_params = self.sampling_params
-        if kwargs:
-            sampling_params = SamplingParams(
-                temperature=kwargs.get("temperature", self.sampling_params.temperature),
-                top_p=kwargs.get("top_p", self.sampling_params.top_p),
-                max_tokens=kwargs.get("max_tokens", self.sampling_params.max_tokens),
-            )
-        
+        results = []
         start_time = time.time()
         
+        # 串行处理（vLLM server 本身支持并发，但这里简化实现）
+        for prompt in prompts:
+            try:
+                text, metrics = self.generate(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    **kwargs
+                )
+                results.append((text, metrics))
+            except Exception as e:
+                logger.error(f"批量生成中单个请求失败: {e}")
+                results.append(("", {}))
+        
+        total_time = time.time() - start_time
+        
+        # 更新每个结果的 metrics（使用平均时间）
+        for i, (text, metrics) in enumerate(results):
+            if metrics:
+                metrics["total_time"] = total_time / len(prompts)
+                metrics["tokens_per_second"] = (
+                    metrics.get("tokens_generated", 0) / metrics["total_time"]
+                    if metrics["total_time"] > 0 else 0
+                )
+        
+        return results
+    
+    def generate_stream(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        **kwargs
+    ) -> Any:
+        """
+        流式生成文本（生成器）
+        
+        Args:
+            prompt: 用户提示
+            system_prompt: 系统提示（可选）
+            max_tokens: 最大生成 token 数
+            temperature: 采样温度
+            **kwargs: 其他采样参数
+        
+        Yields:
+            生成的文本片段
+        """
+        # 构造消息列表
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        
+        # 准备请求参数
+        request_params = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature if temperature is not None else 0.7,
+            "max_tokens": max_tokens if max_tokens is not None else 512,
+            "stream": True,  # 启用流式输出
+        }
+        
+        # 添加其他参数
+        if "top_p" in kwargs:
+            request_params["top_p"] = kwargs["top_p"]
+        if "top_k" in kwargs:
+            request_params["top_k"] = kwargs["top_k"]
+        
         try:
-            outputs = self.llm.generate(full_prompts, sampling_params)
-            total_time = time.time() - start_time
+            stream = self.client.chat.completions.create(**request_params)
             
-            results = []
-            for i, output in enumerate(outputs):
-                if output.outputs:
-                    generated_text = output.outputs[0].text
-                    token_count = len(output.outputs[0].token_ids)
-                    
-                    metrics = {
-                        "ttft": total_time / len(prompts),  # 简化：平均时间
-                        "total_time": total_time / len(prompts),
-                        "tokens_generated": token_count,
-                        "tokens_per_second": token_count / (total_time / len(prompts)) if total_time > 0 else 0,
-                    }
-                    
-                    results.append((generated_text, metrics))
-                else:
-                    results.append(("", {}))
-            
-            return results
+            for chunk in stream:
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    if delta and delta.content:
+                        yield delta.content
         
         except Exception as e:
-            logger.error(f"批量生成失败: {e}")
+            error_msg = str(e).lower()
+            if "connection" in error_msg or "refused" in error_msg:
+                logger.error("❌ [VLLM Client] 无法连接到 vLLM 服务")
+                logger.error("   请确保已启动 vLLM 服务")
+            else:
+                logger.error(f"❌ [VLLM Client] 流式生成失败: {e}")
             raise
     
     def get_stats(self) -> Dict[str, Any]:
         """获取推理引擎统计信息"""
         return {
-            "model_path": self.model_path,
-            "gpu_memory_utilization": self.gpu_memory_utilization,
-            "max_model_len": self.max_model_len,
-            "enable_prefix_caching": self.enable_prefix_caching,
+            "base_url": self.base_url,
+            "model": self.model,
+            "timeout": self.timeout,
+            "mode": "client-server",
         }
+
+
+# 兼容性：保持 VLLM_AVAILABLE 变量（现在总是 True，因为只需要 openai 库）
+VLLM_AVAILABLE = OPENAI_AVAILABLE

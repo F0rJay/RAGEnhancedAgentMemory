@@ -51,15 +51,38 @@ class Settings(BaseSettings):
     )
     rerank_top_k: int = Field(default=5, description="重排序 Top-K 数量")
 
-    # vLLM 配置
+    # vLLM 配置（Client-Server 架构）
+    # 注意：vLLM 现在作为独立服务运行，插件通过 HTTP API 调用
+    vllm_base_url: str = Field(
+        default="http://localhost:8000/v1",
+        description="vLLM 服务地址（OpenAI-compatible API endpoint）"
+    )
+    vllm_model: Optional[str] = Field(
+        default=None,
+        description="vLLM 模型路径或名称（本地路径或 HuggingFace ID，必须与 vLLM server 启动时指定的模型一致）"
+    )
+    vllm_api_key: str = Field(
+        default="EMPTY",
+        description="vLLM API 密钥（本地运行通常不需要，设为 EMPTY）"
+    )
+    vllm_timeout: float = Field(
+        default=300.0,
+        description="vLLM 请求超时时间（秒）"
+    )
+    
+    # 保留旧配置项以兼容（已废弃，但保留用于向后兼容）
     vllm_model_path: Optional[str] = Field(
-        default="Qwen/Qwen2.5-7B-Instruct", 
-        description="vLLM 模型路径（推荐 7B 模型以在 31GB GPU 上运行）"
+        default=None,
+        description="[已废弃] vLLM 模型路径，请使用 VLLM_MODEL 和 VLLM_BASE_URL"
     )
     vllm_gpu_memory_utilization: float = Field(
-        default=0.4, description="vLLM GPU 内存使用率（31GB GPU 建议 0.4，确保有足够 KV cache 内存）"
+        default=0.4,
+        description="[已废弃] vLLM GPU 内存使用率，现在由 vLLM server 启动参数控制"
     )
-    vllm_max_model_len: int = Field(default=512, description="vLLM 最大模型长度（31GB GPU 建议 512-1024，降低以节省内存）")
+    vllm_max_model_len: int = Field(
+        default=512,
+        description="[已废弃] vLLM 最大模型长度，现在由 vLLM server 启动参数控制"
+    )
 
     # 镜像源配置
     hf_endpoint: Optional[str] = Field(

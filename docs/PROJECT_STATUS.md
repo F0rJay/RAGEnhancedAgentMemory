@@ -139,8 +139,8 @@
 
 **实现内容**:
 - ✅ **vLLM PagedAttention 集成** - 动态 KV cache 管理
-- ✅ **Prefix Caching 配置** - 相似提示复用计算结果
-- ✅ **CUDA Graph 优化** - 首次请求构建 Graph，后续请求加速
+- ✅ **Prefix Caching 配置** - 相似提示复用计算结果（可选）
+- ⚠️ **CUDA Graph 优化** - 默认禁用（使用 `--enforce-eager`），避免 `duplicate template name` 错误。如需启用，可在启动 vLLM 服务时使用 `--no-enforce-eager` 参数
 - ✅ **并发性能测试** - 支持高并发场景，吞吐量提升 1216%
 
 **量化成果**:
@@ -176,9 +176,9 @@
 - **最终方案**：`512 → 256`（平衡性能与内存）
 
 **第四轮：优化特性启用策略**
-- Prefix Caching：初始禁用 → 启用 → 内存不足时自动降级
-- CUDA Graph：`enforce_eager: True → False`（启用Graph优化）
-- 策略：优先启用所有优化，失败时自动降级到保守配置
+- Prefix Caching：初始禁用 → 启用 → 内存不足时自动降级（可选）
+- CUDA Graph：默认禁用（`enforce_eager: True`），避免 `duplicate template name` 错误，确保系统稳定性
+- 策略：优先保证系统稳定性，CUDA Graph 默认禁用，Prefix Caching 可选启用
 
 **第五轮：测试架构优化**
 - 问题：Baseline和vLLM测试在同一进程导致GPU内存残留
@@ -188,9 +188,9 @@
 
 **最终技术配置**:
 - `gpu_memory_utilization`: 0.7（自动根据CUDA空闲内存调整，最小值0.4）
-- `max_model_len`: 256（平衡性能与内存）
-- `enable_prefix_caching`: True（失败时自动禁用）
-- `enforce_eager`: False（CUDA Graph优化）
+- `max_model_len`: 1024（平衡性能与内存）
+- `enable_prefix_caching`: True（可选，失败时自动禁用）
+- `enforce_eager`: True（默认禁用 CUDA Graph，确保系统稳定性）
 
 **关键优化经验**:
 1. ✅ **渐进式调优**：从保守配置逐步优化，避免一次性激进调整
@@ -283,7 +283,7 @@
    - 目标：通过 vLLM 优化降低 TTFT 25%+
    - 实际：**TTFT 降低 44.56%**，端到端延迟降低 44.56%
    - **超额完成 1.78 倍**
-   - ✅ vLLM 完整集成（PagedAttention + Prefix Caching + CUDA Graph）
+   - ✅ vLLM 完整集成（PagedAttention + Prefix Caching，CUDA Graph 默认禁用）
    - ✅ 并发吞吐量提升 1216%（20 路并发）
 
 ---
@@ -311,7 +311,7 @@
 4. ✅ **vLLM 推理加速**
    - PagedAttention 动态 KV cache 管理
    - Prefix Caching 相似提示复用
-   - CUDA Graph 优化首次请求后的性能
+   - CUDA Graph 默认禁用（使用 `--enforce-eager`），确保系统稳定性
    - 并发吞吐量提升 1216%，完美利用 GPU 并行算力
 
 ### 工程实践成就
@@ -352,7 +352,7 @@
 | 技术栈 | 状态 | 说明 |
 |--------|------|------|
 | **LangGraph** | ✅ 已集成 | 状态管理、检查点、图编排 |
-| **vLLM** | ✅ 已集成 | PagedAttention + Prefix Caching + CUDA Graph |
+| **vLLM** | ✅ 已集成 | PagedAttention + Prefix Caching（CUDA Graph 默认禁用） |
 | **Qdrant/Chroma** | ✅ 已集成 | 本地嵌入式模式 + 远程模式 |
 | **PostgreSQL** | ✅ 已支持 | 会话状态持久化 |
 | **Ragas** | ✅ 已集成 | 评估框架 |
@@ -375,7 +375,7 @@
    - 意图感知过滤机制（论文级创新）
    - 记忆强化机制（理论+实践结合）
    - 三阶段系统调优路线
-   - vLLM 推理加速（PagedAttention + Prefix Caching + CUDA Graph）
+   - vLLM 推理加速（PagedAttention + Prefix Caching，CUDA Graph 默认禁用）
 
 3. **工程实践能力**
    - 完整的测试框架和评估体系

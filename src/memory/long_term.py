@@ -25,12 +25,9 @@ except ImportError:
     # 使用 math 作为后备
     np = None
 
-try:
-    from sentence_transformers import SentenceTransformer
-except ImportError as e:
-    raise ImportError(
-        "sentence-transformers 未安装。请运行: pip install sentence-transformers>=2.3.0"
-    ) from e
+# 延迟导入 SentenceTransformer，避免模块级导入触发 torch
+# SentenceTransformer 将在 LongTermMemory.__init__ 中按需导入
+SentenceTransformer = None  # 占位符，实际导入在 __init__ 方法中
 
 try:
     from qdrant_client import QdrantClient
@@ -115,10 +112,14 @@ class LongTermMemory:
         self.collection_name = collection_name or settings.qdrant_collection_name
         self.embedding_dim = embedding_dim or settings.embedding_dim
 
-        # 初始化嵌入模型
+        # 初始化嵌入模型（延迟导入，避免模块级导入触发 torch）
         logger.info(f"加载嵌入模型: {self.embedding_model_name}")
         try:
             device = settings.embedding_device
+            # 延迟导入 SentenceTransformer，避免模块级导入触发 torch
+            # 这样可以确保用户 import 插件时不会触发 torch 导入
+            from sentence_transformers import SentenceTransformer
+            
             # 尝试离线加载，如果本地有模型文件就不需要联网
             import os
             # 设置离线模式环境变量（如果还没有设置）
@@ -144,6 +145,8 @@ class LongTermMemory:
                 del os.environ["TRANSFORMERS_OFFLINE"]
                 del os.environ["HF_DATASETS_OFFLINE"]
                 try:
+                    # 延迟导入 SentenceTransformer
+                    from sentence_transformers import SentenceTransformer
                     self.embedding_model = SentenceTransformer(
                         self.embedding_model_name,
                         device=device,
@@ -170,6 +173,37 @@ class LongTermMemory:
             f"vector_db={self.vector_db_type}, "
             f"collection={self.collection_name}"
         )
+    
+    def close(self) -> None:
+        """
+        关闭向量数据库客户端连接
+        
+        应该在程序退出前调用，以避免退出时的清理警告
+        """
+        try:
+            if self.client is not None:
+                if self.vector_db_type == "qdrant" and hasattr(self.client, 'close'):
+                    try:
+                        self.client.close()
+                        logger.debug("Qdrant 客户端已关闭")
+                    except Exception as e:
+                        logger.debug(f"关闭 Qdrant 客户端时出错（可忽略）: {e}")
+                elif self.vector_db_type == "chroma" and hasattr(self.client, 'persist'):
+                    # Chroma 客户端通常不需要显式关闭，但可以调用 persist 确保数据保存
+                    try:
+                        self.client.persist()
+                        logger.debug("Chroma 客户端数据已持久化")
+                    except Exception:
+                        pass
+        except Exception as e:
+            logger.debug(f"清理长期记忆资源时出错（可忽略）: {e}")
+    
+    def __del__(self):
+        """析构函数，尝试清理资源"""
+        try:
+            self.close()
+        except Exception:
+            pass  # 忽略所有错误，避免在 Python 关闭时出错
 
     def _init_vector_db(self) -> None:
         """初始化向量数据库客户端"""

@@ -80,3 +80,10 @@ data/
 qdrant_storage/
 chroma_db/
 qdrant_db/
+
+# 内部文档（不提交到 GitHub）
+docs/VLLM_TROUBLESHOOTING_JOURNEY.md
+
+# 自动生成的测试报告（不提交到 GitHub）
+benchmark_comparison_report.md
+benchmarkAPI_comparison_report.md

@@ -8,19 +8,10 @@ import time
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 
-try:
-    from sentence_transformers import CrossEncoder
-except ImportError:
-    try:
-        # 尝试从 transformers 导入
-        from transformers import AutoModelForSequenceClassification, AutoTokenizer
-        import torch
-        TRANSFORMERS_AVAILABLE = True
-    except ImportError:
-        TRANSFORMERS_AVAILABLE = False
-        CrossEncoder = None
-else:
-    TRANSFORMERS_AVAILABLE = False
+# 延迟导入 CrossEncoder 和 torch，避免模块级导入触发 torch
+# 这些导入将在 Reranker._init_model 方法中按需导入
+CrossEncoder = None  # 占位符，实际导入在 _init_model 方法中
+TRANSFORMERS_AVAILABLE = None  # 占位符，实际检测在 _init_model 方法中
 
 try:
     from loguru import logger
@@ -80,10 +71,12 @@ class Reranker:
         logger.info(f"重排序器初始化完成: model={self.model_name}, device={self.device}")
 
     def _init_model(self) -> None:
-        """初始化重排序模型"""
+        """初始化重排序模型（延迟导入，避免模块级导入触发 torch）"""
         try:
-            # 优先使用 sentence-transformers 的 CrossEncoder
-            if CrossEncoder is not None:
+            # 延迟导入，避免模块级导入触发 torch
+            # 优先尝试使用 sentence-transformers 的 CrossEncoder
+            try:
+                from sentence_transformers import CrossEncoder
                 self.model = CrossEncoder(
                     self.model_name,
                     max_length=512,
@@ -91,8 +84,15 @@ class Reranker:
                 )
                 self.use_cross_encoder = True
                 logger.info("使用 CrossEncoder 重排序模型")
-            elif TRANSFORMERS_AVAILABLE:
-                # 使用 transformers 库
+                return
+            except ImportError:
+                # CrossEncoder 不可用，尝试使用 transformers
+                pass
+            
+            # 使用 transformers 库作为备选方案
+            try:
+                from transformers import AutoModelForSequenceClassification, AutoTokenizer
+                import torch
                 self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
                 self.model = AutoModelForSequenceClassification.from_pretrained(
                     self.model_name
@@ -101,11 +101,16 @@ class Reranker:
                 self.model.eval()
                 self.use_cross_encoder = False
                 logger.info("使用 Transformers 重排序模型")
-            else:
-                raise ImportError(
-                    "重排序模型库未安装。请运行: "
-                    "pip install sentence-transformers>=2.3.0 或 transformers>=4.36.0"
-                )
+                return
+            except ImportError:
+                # transformers 也不可用
+                pass
+            
+            # 如果两种方案都失败，抛出错误
+            raise ImportError(
+                "重排序模型库未安装。请运行: "
+                "pip install sentence-transformers>=2.3.0 或 transformers>=4.36.0"
+            )
         except Exception as e:
             logger.error(f"重排序模型加载失败: {e}")
             raise
