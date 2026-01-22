@@ -317,7 +317,53 @@ flowchart TD
 
 ## 🏗️ 架构设计
 
-### 系统架构
+### 系统架构流程图
+
+```mermaid
+graph TB
+    Start[用户输入<br/>User Input] --> LangGraph[LangGraph 状态机<br/>Orchestration Layer]
+    
+    LangGraph --> Route{路由决策<br/>Memory Router}
+    
+    Route -->|短期记忆充足| ShortTerm[短期记忆检索<br/>Short-term Memory<br/>滑动窗口缓存]
+    Route -->|需要长期记忆| LongTerm[长期记忆检索<br/>Long-term Memory<br/>向量数据库检索]
+    Route -->|混合场景| Hybrid[混合检索<br/>Hybrid Retrieval<br/>短期 + 长期]
+    
+    ShortTerm --> Rerank[重排序<br/>Reranker<br/>BAAI/bge-reranker-large]
+    LongTerm --> Rerank
+    Hybrid --> Rerank
+    
+    Rerank --> Context[构建上下文<br/>Context Assembly<br/>合并检索结果]
+    
+    Context --> VLLM[vLLM 推理引擎<br/>Inference Engine<br/>PagedAttention + Prefix Caching]
+    
+    VLLM --> Response[生成响应<br/>Generated Response]
+    
+    Response --> Save[保存记忆<br/>Save Memory]
+    
+    Save -->|更新短期记忆| ShortTermBuffer[短期记忆缓冲区<br/>Short-term Buffer]
+    Save -->|归档到长期记忆| LongTermDB[长期记忆数据库<br/>Vector Database<br/>Qdrant/Chroma]
+    
+    ShortTermBuffer -.->|达到阈值| Archive[归档处理<br/>Archive Process]
+    Archive --> LongTermDB
+    
+    Response --> End[返回响应<br/>Return Response]
+    
+    style Start fill:#e3f2fd
+    style LangGraph fill:#fff3e0
+    style Route fill:#f3e5f5
+    style ShortTerm fill:#fff4e1
+    style LongTerm fill:#e8f5e9
+    style Hybrid fill:#e1f5ff
+    style Rerank fill:#fce4ec
+    style Context fill:#f1f8e9
+    style VLLM fill:#ffebee
+    style Response fill:#e0f2f1
+    style Save fill:#fff9c4
+    style End fill:#e3f2fd
+```
+
+### 系统架构层次
 
 ```
 ┌─────────────────────────────────────────────────────────┐
