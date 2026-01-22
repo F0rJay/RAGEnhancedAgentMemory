@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
-    {name = "F0rJay", email = ""}
+    {name = "F0rJay"}
 ]
 keywords = ["rag", "agent", "memory", "langgraph", "vllm", "llm", "ai"]
 classifiers = [
@@ -56,6 +56,9 @@ dev = [
 vllm = [
     "vllm>=0.6.0",
 ]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]

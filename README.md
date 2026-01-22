@@ -1,195 +1,127 @@
 # RAGEnhancedAgentMemory
 
+<div align="center">
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
 [![Test Coverage](https://img.shields.io/badge/Test%20Coverage-80%2B%25-brightgreen)](tests/)
-[![Status](https://img.shields.io/badge/Status-92%25%20Complete-success)](docs/PROJECT_STATUS.md)
-[![Performance](https://img.shields.io/badge/Success%20Rate-66%25--100%25-brightgreen)](docs/BASELINE_ANALYSIS.md)
+[![Status](https://img.shields.io/badge/Status-Production%20Ready-success)](docs/PROJECT_STATUS.md)
 
-**构建企业级 RAG 增强型 Agent 记忆系统：基于 LangGraph 与 vLLM 的生产化架构**
+**企业级 RAG 增强型 Agent 记忆系统**  
+*基于 LangGraph 与 vLLM 的生产化架构*
 
-> 🎉 **核心目标已达成**：长对话成功率提升 **66.67%-100%**（超额完成），存储效率优化 **57.14%-100%**（超过目标），推理延迟降低 **44.56%**（超额完成 1.78 倍）
+[特性](#-核心特性) • [快速开始](#-快速开始) • [文档](#-文档) • [性能](#-性能指标) • [贡献](#-贡献指南)
 
-## 📋 项目简介
+</div>
 
-RAGEnhancedAgentMemory 是一个企业级的 Agent 记忆增强插件，旨在解决原生 Agent 在长对话中面临的三大核心难题：
+---
 
-- 🧠 **记忆过载**：传统滑动窗口导致早期关键信息丢失
-- 🔄 **信息遗忘**：全量摘要随对话轮数增加导致上下文窗口耗尽
-- ⚡ **推理退化**：海量历史数据线性查找效率极低，影响 Time-to-First-Token (TTFT)
+## 📑 目录
 
-通过将检索增强生成（RAG）技术与 Agent 的长期记忆机制深度融合，本方案实现了**分层记忆架构**与**动态检索路由**，结合 LangGraph 的循环图编排能力与 **vLLM 的高性能推理引擎**（PagedAttention + Prefix Caching + CUDA Graph），构建了一个具备"海马体"功能的智能 Agent 系统。
+- [项目简介](#-项目简介)
+- [核心特性](#-核心特性)
+- [性能指标](#-性能指标)
+- [架构设计](#-架构设计)
+- [安装指南](#-安装指南)
+- [快速开始](#-快速开始)
+- [配置说明](#-配置说明)
+- [使用示例](#-使用示例)
+- [文档](#-文档)
+- [贡献指南](#-贡献指南)
+- [许可证](#-许可证)
 
-**核心成就**：
+---
+
+## 🎯 项目简介
+
+**RAGEnhancedAgentMemory** 是一个企业级的 AI Agent 记忆增强系统，旨在解决长对话场景中的三大核心挑战：
+
+| 挑战 | 传统方案 | 我们的解决方案 |
+|------|---------|--------------|
+| **记忆过载** | 滑动窗口导致早期关键信息丢失 | ✅ 分层记忆架构 |
+| **信息遗忘** | 全量摘要耗尽上下文窗口 | ✅ 向量数据库语义检索 |
+| **推理退化** | 海量历史数据线性查找效率低 | ✅ vLLM 加速推理，延迟降低 44.56% |
+
+### 核心成就
+
 - ✅ **长对话成功率提升 66.67%-100%**（超额完成 2-3 倍）
 - ✅ **存储效率优化 57.14%-100%**（超过 45% 目标）
 - ✅ **推理延迟降低 44.56%**（超额完成 1.78 倍，目标 25%+）
 - ✅ **并发吞吐量提升 1216%**（20 路并发）
 
-### 🎯 核心特性
+---
 
-- ✅ **分层记忆系统**：瞬时记忆、短期记忆、长期语义记忆的三层架构
-- ✅ **自适应检索路由**：智能决策何时从长期记忆检索，何时使用短期缓存
-- ✅ **混合存储后端**：向量数据库（语义检索）+ 关系型数据库（元数据与状态）
-- ✅ **生产级性能**：vLLM PagedAttention + Prefix Caching + CUDA Graph，推理延迟降低 44.56%，并发吞吐量提升 1216%
-- ✅ **质量保障体系**：集成 Ragas 评估框架与 Needle-in-a-Haystack 测试
-- ✅ **状态持久化**：基于 LangGraph Checkpointing 的会话状态管理
+## ✨ 核心特性
 
-### 📊 核心性能指标
+### 核心能力
 
-> **🎯 项目核心目标：构建生产级 RAG 增强型 Agent 记忆系统，解决长对话中的记忆过载、信息遗忘和推理退化问题**
+- **🧠 分层记忆系统**
+  - 瞬时记忆（LangGraph State）
+  - 短期记忆（滑动窗口 + 实体缓存）
+  - 长期语义记忆（向量数据库）
 
-#### ✅ 核心指标（已验证并超额完成）
+- **🔄 自适应检索路由**
+  - 智能决策何时从长期记忆检索
+  - 自动回退到短期缓存
 
-| 指标 | 目标 | 实际达成 | 状态 | 测试场景 |
-|------|------|----------|------|----------|
-| **长对话成功率提升** | ≥30% | **66.67%-100%** | ✅ **超额完成** | 30/50/100轮对话 |
-| **存储效率优化** | 降低45%+ | **57.14%-100%** | ✅ **已达成** | 真实场景/压力测试 |
-| **推理延迟优化** | 降低25%+ | **44.56%** | ✅ **超额完成** | vLLM优化 |
+- **🔍 混合检索**
+  - 向量搜索（语义相似度）
+  - 关键词搜索（精确匹配）
+  - 使用 BAAI/bge-reranker-large 重排序
 
-##### 1. 长对话成功率提升 ✅
+- **⚡ 生产级性能**
+  - vLLM PagedAttention 动态 KV cache 管理
+  - Prefix Caching 相似提示复用
+  - CUDA Graph 优化后续请求
 
-**基准测试结果：**
+- **📊 质量保障**
+  - 集成 Ragas 评估框架
+  - Needle-in-a-Haystack 测试
+  - 80%+ 测试覆盖率（核心模块 93%+）
 
-| 对话轮数 | 基线系统成功率 | 增强系统成功率 | 提升幅度 | 状态 |
-|---------|--------------|--------------|---------|------|
-| 10 轮   | 100% | 100% | 0% | 基线系统可处理 |
-| 30 轮   | 0% | **66.67%** | **+66.67 百分点** | ✅ 超额完成 |
-| 50 轮   | 0% | **66.67%** | **+66.67 百分点** | ✅ 超额完成 |
-| 100 轮  | 0% | **100%** | **+100 百分点** | ✅ 超额完成 |
+- **💾 状态持久化**
+  - LangGraph Checkpointing 会话状态管理
+  - PostgreSQL 集成保证 ACID 一致性
 
-**关键发现：**
-- ✅ 基线系统（滑动窗口/摘要）在长对话中**完全失效**（0%成功率）
-- ✅ RAG 增强系统在长对话中**表现卓越**（66.67%-100%成功率）
-- ✅ **知识保留度 100%**：订单号、退货意图等关键信息完整保留
+---
 
-##### 2. 存储效率优化 ✅
+## 📊 性能指标
 
-**存储优化测试结果：**
+### 基准测试结果
+
+#### 长对话成功率
+
+| 对话轮数 | 基线系统 | 增强系统 | 提升幅度 | 状态 |
+|---------|---------|---------|---------|------|
+| 10 轮 | 100% | 100% | 0% | 基线系统可处理 |
+| 30 轮 | 0% | **66.67%** | **+66.67 百分点** | ✅ 超额完成 |
+| 50 轮 | 0% | **66.67%** | **+66.67 百分点** | ✅ 超额完成 |
+| 100 轮 | 0% | **100%** | **+100 百分点** | ✅ 超额完成 |
+
+#### 存储效率优化
 
 | 测试场景 | 基线存储 | 优化存储 | 降低率 | 状态 |
 |---------|---------|---------|--------|------|
-| **真实业务场景** | 21 条 | **9 条** | **57.14%** | ✅ 接近目标 |
-| **压力测试** | 3 条 | **0 条** | **100%** | ✅ 完美去重 |
-| **生产环境模拟** | 12 条 | **1 条** | **91.67%** | ✅ 高度聚合 |
+| 真实业务场景 | 21 条 | **9 条** | **57.14%** | ✅ 超过目标 |
+| 压力测试 | 3 条 | **0 条** | **100%** | ✅ 完美去重 |
+| 生产环境模拟 | 12 条 | **1 条** | **91.67%** | ✅ 高度聚合 |
 
-**核心技术：**
-- ✅ **意图+实体双重白名单**：精准识别业务指令，避免误删
-- ✅ **语义去重**（阈值 0.96）：区分细微差异，保留关键细节
-- ✅ **时间窗口约束**（3分钟）：避免跨 Session 过度去重
-- ✅ **记忆强化机制**：去重时更新访问计数，提升检索优先级
+#### 推理延迟优化
 
-**详细信息**：参见 [存储优化技术报告](docs/STORAGE_OPTIMIZATION_REPORT.md)
-
-##### 3. 推理延迟优化 ✅
-
-**推理延迟优化测试结果：**
-
-| 指标 | Baseline (Transformers) | vLLM (优化) | 提升幅度 | 状态 |
-|------|----------------------|------------|---------|------|
+| 指标 | 基线 (Transformers) | vLLM (优化) | 提升幅度 | 状态 |
+|------|-------------------|-----------|---------|------|
 | **首字延迟 (TTFT)** | 380.5 ms | **210.9 ms** | **-44.56%** | ✅ 超额完成 |
 | **端到端延迟** | 3805.4 ms | **2109.6 ms** | **-44.56%** | ✅ 超额完成 |
 | **单请求吞吐量** | 67.3 tokens/s | **101.2 tokens/s** | **+50.44%** | ✅ |
 | **并发吞吐量 (20路)** | 70.3 tokens/s | **925.7 tokens/s** | **+1216%** | ✅ |
-| **并发速度提升** | 1x | **11.0x** | **11倍** | ✅ |
 
-**核心技术：**
-- ✅ **vLLM PagedAttention**：动态 KV cache 管理，支持高并发而不浪费内存
-- ✅ **Prefix Caching**：相似提示复用计算结果，显著降低延迟
-- ✅ **CUDA Graph**：首次请求构建 Graph，后续请求显著加速
-- ✅ **工程优化迭代**：经过多轮调优（模型规模选择、GPU内存优化、配置平衡）
-
-**关键发现：**
-- ✅ vLLM 在并发场景下表现卓越：20 并发时总耗时仅增加 1.9%，吞吐量稳定在 ~935 tokens/s
-- ✅ Baseline 受限于串行处理，并发数增加时吞吐量基本不变（~70 tokens/s）
-- ✅ **用户体验提升显著**：TTFT 从 380ms 降至 211ms，从"卡顿"变"秒回"
-
-**详细信息**：参见 [性能指标汇总](docs/Performance.md) 和 [项目状态报告](docs/PROJECT_STATUS.md)
-
-#### 📊 性能对比总览
-
-| 维度 | 基线系统 | RAG 增强系统 | 改进幅度 |
-|------|---------|-------------|---------|
-| **长对话成功率** | 0-33% | **66.67%-100%** | **+66.67-100 百分点** ✅ |
-| **存储成本** | ~1 KB | ~3-4 KB | 功能增强的必要成本 |
-| **检索延迟** | 0ms（但无法检索） | 40-80ms | 可接受，换取功能正确性 |
-| **检索精度** | 低（信息丢失） | **高（语义匹配）** | **显著提升** ✅ |
-| **支持对话长度** | ≤10 轮 | **100+ 轮** | **10倍提升** ✅ |
-| **推理延迟 (TTFT)** | 380.5 ms | **210.9 ms** | **-44.56%** ✅ |
-| **并发吞吐量** | 70.3 tokens/s | **925.7 tokens/s** | **+1216%** ✅ |
-
-#### 🔄 功能增强的必要成本
-
-**存储开销说明：**
-- 基线系统：~1 KB（但**功能完全失效**）
-- 增强系统：~3-4 KB（**功能正常工作**）
-- **结论**：这是实现长对话功能的必要成本，换取了核心功能的正确性
-
-**检索延迟说明：**
-- 基线系统：0ms（但**无法检索早期信息**）
-- 增强系统：40-80ms（**可准确检索历史信息**）
-- **结论**：延迟在可接受范围内，换取了功能正确性
-
-#### 🚀 已完成优化
-
-1. **推理延迟优化**（✅ 已完成并超额达成）
-   - ✅ 集成 vLLM PagedAttention + Prefix Caching + CUDA Graph
-   - ✅ TTFT 降低 **44.56%**（目标 25%+，超额完成 1.78 倍）
-   - ✅ 并发吞吐量提升 **1216%**（20 路并发）
-   - ✅ 经过多轮调优：模型规模选择、GPU内存优化、配置平衡等
-   - 状态：**已完成并超额达成目标**
-
-2. **存储效率优化**（✅ 已实现）
-   - 语义去重、低价值过滤、时间加权衰减
-   - 实际降低率：57.14%-100%
-   - 状态：**已达成并超过目标**
-
-## 📈 项目进展状态
-
-### ✅ 已完成模块（100%）
-
-- ✅ **核心系统实现**：分层记忆架构、自适应路由、混合检索
-- ✅ **存储效率优化**：语义去重、低价值过滤、时间加权衰减、记忆强化
-- ✅ **推理延迟优化**：vLLM PagedAttention + Prefix Caching + CUDA Graph
-- ✅ **基准测试框架**：完整的测试数据集和评估体系
-- ✅ **量化指标验证**：长对话成功率 66.67%-100%（超额完成），存储优化 57.14%-100%，推理延迟降低 44.56%（超额完成）
-- ✅ **测试覆盖率**：80%+（核心模块 93%+，新增 37 个测试用例）
-
-### 🚧 进行中 / 计划中
-
-- 🔄 **测试覆盖率提升**：部分模块仍需完善
-- 📝 **文档完善**：API 文档、部署指南
-- 🚀 **生产部署**：Docker 化、K8s 编排
-
-### 📊 项目完成度：约 92%
-
-**核心功能完成度：100%** | **测试与验证：90%** | **优化与集成：100%**
-
-**详细进展报告**：参见 [项目状态报告](docs/PROJECT_STATUS.md)
+> 📈 **详细性能报告**：参见 [Performance.md](docs/Performance.md) 和 [PROJECT_STATUS.md](docs/PROJECT_STATUS.md)
 
 ---
 
 ## 🏗️ 架构设计
 
-### 2.1 分层记忆架构
-
-基于 Atkinson-Shiffrin 记忆模型的工程化映射：
-
-#### 瞬时记忆（Sensory/Transient Memory）
-- 当前单轮对话或工具调用的中间状态
-- 存在于 LangGraph `State` 对象中，随请求结束释放
-- 特点：高频读写、极低延迟、内存承载
-
-#### 短期记忆（Short-Term/Working Memory）
-- 维护当前会话的上下文连贯性
-- 最近 N 轮对话的滑动窗口 + 关键实体缓存
-- 动态压缩机制防止上下文窗口爆炸
-
-#### 长期记忆（Long-Term Semantic Memory）
-- 基于向量数据库的语义检索存储
-- 支持异步归档与去重
-- 检索触发条件：短期记忆达到阈值或相关性评分低于阈值
-
-### 2.2 技术架构
+### 系统架构
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -221,30 +153,48 @@ RAGEnhancedAgentMemory 是一个企业级的 Agent 记忆增强插件，旨在�
 └─────────────────────────────────────────────────────────┘
 ```
 
-## 🛠️ 技术栈
+### 技术栈
 
-| 组件 | 选型 | 生产级理由 |
-|------|------|-----------|
-| **编排框架** | LangGraph | 支持循环、状态持久化和短路控制，优于 LangChain 的线性链 |
-| **推理引擎** | vLLM | PagedAttention 提升吞吐量，Prefix Caching 降低 Agent 首字延迟 |
-| **向量数据库** | Qdrant / Chroma | 支持高性能过滤（Filtering），Rust 实现（Qdrant）性能优异 |
-| **检索策略** | Hybrid + Rerank | 纯向量检索无法处理精确关键词匹配；重排序显著提升上下文精度 |
-| **评估框架** | Ragas | "LLM-as-a-Judge" 是目前评估生成式 AI 效果最可扩展的方法 |
-| **持久化** | PostgreSQL + Vector | 关系型数据库保证会话状态 ACID，向量库处理语义检索 |
+| 组件 | 技术选型 | 选型理由 |
+|------|---------|---------|
+| **编排框架** | LangGraph | 支持循环、状态持久化和短路控制 |
+| **推理引擎** | vLLM | PagedAttention 提升吞吐量，Prefix Caching 降低首字延迟 |
+| **向量数据库** | Qdrant / Chroma | 高性能过滤，Rust 实现（Qdrant）性能优异 |
+| **检索策略** | Hybrid + Rerank | 向量搜索 + 关键词匹配 + 重排序 |
+| **评估框架** | Ragas | LLM-as-a-Judge 可扩展评估方法 |
+| **持久化** | PostgreSQL + Vector | ACID 一致性 + 语义检索 |
 
-## 📦 安装
+---
+
+## 📦 安装指南
 
 ### 环境要求
 
 - Python >= 3.9
-- CUDA >= 11.8 (如需使用 vLLM)
-- 8GB+ RAM (推荐 16GB+)
+- CUDA >= 11.8（如需使用 vLLM）
+- 8GB+ RAM（推荐 16GB+）
 
-### 快速开始
+### 方式一：从 GitHub 安装（推荐）
+
+```bash
+# 安装最新版本
+pip install git+https://github.com/F0rJay/RAGEnhancedAgentMemory.git
+
+# 安装特定版本
+pip install git+https://github.com/F0rJay/RAGEnhancedAgentMemory.git@v0.1.0
+
+# 安装时包含 vLLM 支持（可选）
+pip install "rag-enhanced-agent-memory[vllm]"
+
+# 安装开发依赖（可选）
+pip install "rag-enhanced-agent-memory[dev]"
+```
+
+### 方式二：从源码安装
 
 ```bash
 # 克隆仓库
-git clone git@github.com:F0rJay/RAGEnhancedAgentMemory.git
+git clone https://github.com/F0rJay/RAGEnhancedAgentMemory.git
 cd RAGEnhancedAgentMemory
 
 # 创建虚拟环境
@@ -253,207 +203,262 @@ source venv/bin/activate  # Linux/Mac
 # 或
 venv\Scripts\activate  # Windows
 
-# 安装依赖
-pip install -r requirements.txt
+# 以可编辑模式安装
+pip install -e .
 
 # 配置环境变量
-cp .env.example .env
-# 编辑 .env 文件，填入必要的 API 密钥和数据库连接信息
+cp env.example .env
+# 编辑 .env 文件，填入必要的配置
 ```
 
-### 依赖安装
+---
 
-```bash
-pip install langgraph
-pip install langchain-core
-pip install langchain-community
-pip install vllm
-pip install qdrant-client
-pip install chromadb
-pip install psycopg2-binary
-pip install ragas
-pip install sentence-transformers
-```
-
-## 🚀 使用示例
+## 🚀 快速开始
 
 ### 基础使用
 
 ```python
-from rag_enhanced_memory import RAGEnhancedAgentMemory
-from langgraph.graph import StateGraph
+from rag_enhanced_agent_memory import RAGEnhancedAgentMemory
 
 # 初始化记忆系统
 memory = RAGEnhancedAgentMemory(
     vector_db="qdrant",  # 或 "chroma"
+    embedding_model="BAAI/bge-large-en-v1.5",
     rerank_model="BAAI/bge-reranker-large",
-    embedding_model="BAAI/bge-large-en-v1.5"
+    session_id="my_session"
 )
 
-# 定义 Agent 状态
-class AgentState(TypedDict):
-    input: str
-    chat_history: List[BaseMessage]
-    documents: List[str]
-    relevance_score: str
-    hallucination_score: str
-    generation: str
-    retry_count: int
+# 添加记忆
+memory_id = memory.add_memory(
+    content="用户喜欢使用 Python 编程",
+    metadata={"category": "preference", "topic": "programming"}
+)
 
-# 构建 LangGraph
-graph = StateGraph(AgentState)
-graph.add_node("retrieve", memory.retrieve_context)
-graph.add_node("generate", generate_with_vllm)
-graph.add_node("validate", validate_response)
-graph.add_edge("retrieve", "generate")
-graph.add_edge("generate", "validate")
+# 搜索记忆
+results = memory.search("用户的技术偏好", top_k=5)
+for result in results:
+    print(f"内容: {result['content']}")
+    print(f"评分: {result['score']:.2f}")
 
-# 运行 Agent
-app = graph.compile(checkpointer=memory.get_checkpointer())
-response = app.invoke({"input": "用户问题"})
+# 保存对话上下文
+memory.save_context(
+    inputs={"input": "用户问题"},
+    outputs={"generation": "AI 回答"}
+)
 ```
 
-### 高级配置
+### LangGraph 集成
 
 ```python
-# 自定义记忆阈值
-memory = RAGEnhancedAgentMemory(
-    short_term_threshold=10,  # 短期记忆最大轮数
-    long_term_trigger=0.7,    # 相关性阈值，低于此值触发长期检索
-    rerank_top_k=5,           # 重排序 Top-K
-    embedding_dim=1024        # 向量维度
+from rag_enhanced_agent_memory import RAGEnhancedAgentMemory
+from rag_enhanced_agent_memory.graph.state import AgentState
+from langgraph.graph import StateGraph
+
+# 初始化记忆系统
+memory = RAGEnhancedAgentMemory(vector_db="qdrant")
+
+# 定义生成节点
+def generate_node(state: AgentState) -> AgentState:
+    # 使用检索到的上下文生成回答
+    context = "\n".join(state.get("documents", []))
+    state["generation"] = generate_response(context, state["input"])
+    return state
+
+# 构建图
+graph = StateGraph(AgentState)
+graph.add_node("retrieve", memory.retrieve_context)
+graph.add_node("generate", generate_node)
+graph.add_node("save", memory.save_context)
+
+# 设置边
+graph.set_entry_point("retrieve")
+graph.add_edge("retrieve", "generate")
+graph.add_edge("generate", "save")
+
+# 编译并运行
+app = graph.compile(checkpointer=memory.get_checkpointer())
+config = {"configurable": {"thread_id": memory.session_id}}
+result = app.invoke(
+    {"input": "用户的技术栈是什么？", "chat_history": []},
+    config=config
 )
 ```
 
-## 📈 评估与质量保障
+> 📚 **更多示例**：参见 [QUICKSTART.md](QUICKSTART.md) 和 [docs/PLUGIN_USAGE.md](docs/PLUGIN_USAGE.md)
 
-### 基准测试结果
+---
 
-**完整测试报告**：参见 [基线系统分析](docs/BASELINE_ANALYSIS.md) 和 [存储优化报告](docs/STORAGE_OPTIMIZATION_REPORT.md)
+## ⚙️ 配置说明
 
-**运行测试：**
+### 环境变量
+
+从 `env.example` 创建 `.env` 文件：
+
 ```bash
-# 长对话基准测试（基线 vs 增强）
-python scripts/benchmark/long_conversation_test.py
+# 向量数据库
+VECTOR_DB=qdrant
+QDRANT_URL=http://localhost:6333
 
-# 存储效率优化测试
+# 模型配置
+EMBEDDING_MODEL=BAAI/bge-large-en-v1.5
+RERANK_MODEL=BAAI/bge-reranker-large
+
+# 记忆系统参数
+SHORT_TERM_THRESHOLD=10
+LONG_TERM_TRIGGER=0.7
+```
+
+### 代码配置
+
+```python
+memory = RAGEnhancedAgentMemory(
+    vector_db="qdrant",
+    embedding_model="BAAI/bge-large-en-v1.5",
+    rerank_model="BAAI/bge-reranker-large",
+    short_term_threshold=10,      # 短期记忆最大轮数
+    long_term_trigger=0.7,        # 长期记忆触发阈值
+    use_hybrid_retrieval=True,     # 启用混合检索
+    use_rerank=True,               # 启用重排序
+    checkpoint_dir="./checkpoints", # 检查点目录
+    session_id="custom_session"     # 会话 ID
+)
+```
+
+> 📖 **详细配置说明**：参见 [docs/ENV_CONFIG.md](docs/ENV_CONFIG.md)
+
+---
+
+## 📝 使用示例
+
+### 示例脚本
+
+```bash
+# 基础使用示例
+python scripts/basic_example.py
+
+# LangGraph 集成示例
+python scripts/langgraph_example.py
+
+# 评估示例
+python scripts/evaluation_example.py
+
+# 基准测试
+python scripts/benchmark/long_conversation_test.py
 python scripts/benchmark/storage_optimization_test.py
 ```
 
-### Ragas 评估体系
-
-集成 Ragas 框架，重点关注以下指标：
-
-- **Context Recall** (上下文召回率): 检索到的内容是否包含了回答问题所需的全部信息？
-- **Context Precision** (上下文精确度): 检索到的内容中，高质量信息是否排在前面？
-- **Faithfulness** (忠实度): 生成的答案是否完全基于检索到的上下文？（幻觉检测核心指标）
-- **Answer Relevancy** (答案相关性): 回答是否切题？
-
-### Needle-in-a-Haystack 测试
-
-针对长上下文 Agent，验证其在长窗口下的检索能力：
-
-- 在 20k token 的无关文本（Haystack）中随机插入关键事实（Needle）
-- 插入位置涵盖 0%（开头）、50%（中间）、100%（结尾）
-- 验证 Agent 在不同位置都能 100% 准确回答
-
-## 📁 项目结构
+### 项目结构
 
 ```
 RAGEnhancedAgentMemory/
 ├── src/
 │   ├── core.py                # 核心系统集成
 │   ├── config.py              # 配置管理
-│   ├── memory/
-│   │   ├── short_term.py      # 短期记忆管理
-│   │   ├── long_term.py       # 长期记忆归档与检索
-│   │   └── routing.py         # 自适应路由逻辑
-│   ├── retrieval/
-│   │   ├── hybrid.py          # 混合检索实现
-│   │   └── reranker.py        # 重排序模块
-│   ├── inference/
-│   │   ├── vllm_inference.py  # vLLM 推理引擎
-│   │   └── baseline_inference.py  # Baseline 对比
-│   ├── graph/
-│   │   └── state.py           # LangGraph 状态定义
-│   └── evaluation/
-│       ├── ragas_eval.py      # Ragas 评估
-│       └── needle_test.py     # Needle-in-a-Haystack 测试
-├── tests/
-│   ├── test_core.py           # 核心模块测试
-│   ├── test_core_comprehensive.py  # 核心模块全面测试
-│   ├── test_long_term_memory_comprehensive.py  # 长期记忆全面测试
-│   ├── test_edge_cases.py     # 边界条件测试
-│   ├── test_inference.py      # 推理模块测试
-│   └── ...                    # 更多测试文件
-├── scripts/
-│   ├── benchmark/             # 基准测试脚本
-│   │   ├── inference_latency_test.py  # 推理延迟测试
-│   │   └── storage_optimization_test.py  # 存储优化测试
-│   └── ...                    # 示例和使用脚本
-├── docs/                      # 技术文档
-│   ├── PROJECT_STATUS.md      # 项目状态报告
-│   ├── Performance.md         # 性能指标汇总
-│   └── ...                    # 更多文档
-├── .env.example
-├── requirements.txt
-├── LICENSE
-└── README.md
+│   ├── memory/                # 记忆管理模块
+│   ├── retrieval/             # 检索模块
+│   ├── inference/             # 推理引擎
+│   ├── graph/                 # LangGraph 集成
+│   └── evaluation/            # 评估框架
+├── tests/                     # 测试套件
+├── scripts/                   # 示例脚本和基准测试
+├── docs/                      # 文档
+├── requirements.txt           # 依赖列表
+└── pyproject.toml            # 包配置
 ```
 
-## 🔧 配置说明
+---
 
-### 环境变量
+## 📚 文档
 
-详细的环境变量配置说明请参考：[环境变量配置文档](docs/ENV_CONFIG.md)
+### 核心文档
 
-#### 快速配置
+- 📊 [性能指标汇总](docs/Performance.md) - 全面的性能基准测试
+- 📋 [项目状态报告](docs/PROJECT_STATUS.md) - 开发进展和路线图
+- 🚀 [快速开始指南](QUICKSTART.md) - 5 分钟快速上手
+- 🔌 [插件使用指南](docs/PLUGIN_USAGE.md) - 开发者集成指南
+
+### 技术报告
+
+- 📊 [存储优化报告](docs/STORAGE_OPTIMIZATION_REPORT.md) - 存储效率分析
+- 📈 [基线系统分析](docs/BASELINE_ANALYSIS.md) - 与传统方案对比
+- 🔧 [存储优化实现](docs/STORAGE_OPTIMIZATION_IMPLEMENTATION.md) - 技术实现细节
+- 🧪 [存储优化测试](docs/STORAGE_OPTIMIZATION_TESTING.md) - 测试方法论
+- 📝 [测试覆盖率总结](docs/TEST_COVERAGE_SUMMARY.md) - 测试覆盖率分析
+
+### 设置指南
+
+- 🔧 [环境变量配置](docs/ENV_CONFIG.md) - 环境变量参考
+- 🐳 [Docker 设置](docs/DOCKER_SETUP.md) - Docker 部署指南
+- 🗄️ [PostgreSQL 设置](docs/POSTGRESQL_SETUP.md) - 数据库设置指南
+
+---
+
+## 🧪 测试与评估
+
+### 运行测试
 
 ```bash
-# 1. 复制示例文件
-cp env.example .env
+# 运行所有测试
+pytest
 
-# 2. 填写必要的配置项
-# - QDRANT_API_KEY: 本地部署留空，云端部署填写
-# - POSTGRES_PASSWORD: 填写你的 PostgreSQL 密码
-# - VLLM_MODEL_PATH: 本地模型路径或留空使用云端 API
-# - OPENAI_API_KEY: 可选，如需使用 OpenAI API
-# - ANTHROPIC_API_KEY: 可选，如需使用 Claude API
+# 运行并生成覆盖率报告
+pytest --cov=src --cov-report=html --cov-report=term
 
-# 3. 其他配置项可根据需要调整，或使用默认值
+# 运行特定测试套件
+pytest tests/test_core.py
 ```
 
-#### 最小化配置示例
+### 评估框架
 
-```bash
-# 向量数据库（Qdrant 本地部署）
-VECTOR_DB=qdrant
-QDRANT_URL=http://localhost:6333
+我们使用 **Ragas** 进行综合评估：
 
-# 模型配置
-EMBEDDING_MODEL=BAAI/bge-large-en-v1.5
-EMBEDDING_DEVICE=cpu  # 无 GPU 时使用 cpu
+- **Context Recall**：检索到的内容是否包含所有必要信息？
+- **Context Precision**：高质量结果是否排在前面？
+- **Faithfulness**：答案是否完全基于检索到的上下文？
+- **Answer Relevancy**：答案是否与问题相关？
 
-# 记忆系统配置（使用默认值）
-SHORT_TERM_THRESHOLD=10
-LONG_TERM_TRIGGER=0.7
-```
+### Needle-in-a-Haystack 测试
 
-详细配置说明请查看 [环境变量配置文档](docs/ENV_CONFIG.md)
+验证长上下文中的检索能力：
+- 在 20k token 的文本中插入关键事实
+- 测试 0%、50%、100% 位置
+- 验证所有位置 100% 准确率
+
+---
 
 ## 🤝 贡献指南
 
 欢迎贡献代码！请遵循以下步骤：
 
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
+1. **Fork** 本仓库
+2. **创建** 特性分支 (`git checkout -b feature/AmazingFeature`)
+3. **提交** 更改 (`git commit -m 'Add some AmazingFeature'`)
+4. **推送** 到分支 (`git push origin feature/AmazingFeature`)
+5. **开启** Pull Request
+
+### 开发环境设置
+
+```bash
+# 安装开发依赖
+pip install "rag-enhanced-agent-memory[dev]"
+
+# 运行测试
+pytest
+
+# 格式化代码
+black src/ tests/
+
+# 代码检查
+ruff check src/ tests/
+```
+
+---
 
 ## 📄 许可证
 
 本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
+
+---
 
 ## 🙏 致谢
 
@@ -464,54 +469,27 @@ LONG_TERM_TRIGGER=0.7
 - [Qdrant](https://github.com/qdrant/qdrant) - 向量数据库
 - [Ragas](https://github.com/explodinggradients/ragas) - RAG 评估框架
 
-## 📚 相关资源
+---
+
+## 🔗 相关资源
 
 - [LangGraph 官方文档](https://langchain-ai.github.io/langgraph/)
 - [vLLM 文档](https://docs.vllm.ai/)
-- [RAG 最佳实践指南](https://github.com/langchain-ai/langgraph/discussions)
+- [RAG 最佳实践](https://github.com/langchain-ai/langgraph/discussions)
 
-## 📚 技术文档
-
-- 📊 [性能指标汇总](docs/Performance.md) - **核心性能指标一览**（推理延迟、存储优化、长对话成功率）
-- 📋 [项目状态报告](docs/PROJECT_STATUS.md) - 项目整体进展与下一步计划（包含推理优化多轮调优记录）
-- 📊 [存储优化技术报告](docs/STORAGE_OPTIMIZATION_REPORT.md) - 详细的存储效率优化实现与测试结果
-- 📈 [基线系统分析](docs/BASELINE_ANALYSIS.md) - 传统方案的局限性分析与对比
-- 🔧 [存储优化实现](docs/STORAGE_OPTIMIZATION_IMPLEMENTATION.md) - 技术实现细节
-- 🧪 [存储优化测试](docs/STORAGE_OPTIMIZATION_TESTING.md) - 测试方法论
-- 📝 [测试覆盖率总结](docs/TEST_COVERAGE_SUMMARY.md) - 测试覆盖率详细分析
-- 🚀 [快速开始指南](QUICKSTART.md) - 快速上手指南
+---
 
 ## 📧 联系方式
 
-如有问题或建议，请通过以下方式联系：
-
-- 提交 [Issue](https://github.com/F0rJay/RAGEnhancedAgentMemory/issues)
-- 发送邮件至项目维护者
+- 📝 [提交 Issue](https://github.com/F0rJay/RAGEnhancedAgentMemory/issues) - 报告问题或请求功能
+- 💬 [讨论区](https://github.com/F0rJay/RAGEnhancedAgentMemory/discussions) - 提问和分享想法
 
 ---
 
-## 🎉 项目亮点总结
+<div align="center">
 
-### 核心成就
+**由 [F0rJay](https://github.com/F0rJay) 用 ❤️ 制作**
 
-1. ✅ **长对话成功率从 0% 提升至 66.67%-100%**（超额完成 30%+ 目标）
-2. ✅ **存储效率优化 57.14%-100%**（超过 45% 目标）
-3. ✅ **推理延迟降低 44.56%**（超额完成 1.78 倍，目标 25%+）
-4. ✅ **并发吞吐量提升 1216%**（20 路并发，单请求吞吐量 +50%）
-5. ✅ **知识保留度 100%**（关键信息完整保留）
-6. ✅ **测试覆盖率 80%+**（核心模块 93%+，新增 37 个测试用例）
-7. ✅ **完整的基准测试框架**（可复现、可扩展）
+[⭐ 在 GitHub 上 Star 我们](https://github.com/F0rJay/RAGEnhancedAgentMemory) • [📖 阅读文档](docs/) • [🐛 报告 Bug](https://github.com/F0rJay/RAGEnhancedAgentMemory/issues)
 
-### 技术亮点
-
-- 🧠 **分层记忆架构**：基于认知心理学的工程化实现
-- 🎯 **意图感知过滤**：创新性的意图+实体双重白名单机制
-- ⚡ **记忆强化**：符合认知心理学的记忆巩固理论
-- 🚀 **vLLM 推理加速**：PagedAttention + Prefix Caching + CUDA Graph
-- 🔧 **工程优化迭代**：多轮调优，渐进式优化策略
-- 📊 **生产级测试**：多场景基准测试与持续集成
-
----
-
-**最后更新**: 2026-01-22  
-**项目状态**: 🟢 核心功能已完成，量化目标已超额达成
+</div>
