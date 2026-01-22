@@ -366,18 +366,8 @@ python scripts/langgraph_example.py
 # 评估示例
 python scripts/evaluation_example.py
 
-# 基准测试
-python scripts/benchmark/long_conversation_test.py
-python scripts/benchmark/storage_optimization_test.py
-
-# 自动验证测试（增强版）
-python scripts/benchmark/auto_player.py --api-key "your-deepseek-api-key"
-
-# 基线对照组测试
-python scripts/benchmark/baseline_auto_player.py --api-key "your-deepseek-api-key"
-
-# 对比测试（推荐）
-python scripts/benchmark/compare_test.py --api-key "your-deepseek-api-key"
+# 注意：基准测试脚本已移至内部开发工具，不对外提供
+# 如需了解测试结果，请查看 docs/EXPERIMENT_SUMMARY.md
 ```
 
 ### 项目结构

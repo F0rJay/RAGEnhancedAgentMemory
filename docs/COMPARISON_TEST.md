@@ -1,5 +1,8 @@
 # 模拟测试指南
 
+> **注意**：本文档为内部开发文档，基准测试脚本已移至内部开发工具，不对外提供。  
+> 如需了解测试结果，请查看 [docs/EXPERIMENT_SUMMARY.md](EXPERIMENT_SUMMARY.md)
+
 > 本文档说明我们如何创建简单的 Agent 来模拟用户使用 RAGEnhancedAgentMemory 插件优化自己的 Agent，验证插件的易用性和生产环境效果
 
 ## 📋 测试目的
