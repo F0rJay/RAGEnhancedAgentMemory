@@ -4,8 +4,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/Version-0.1.0-blue.svg)](https://github.com/F0rJay/RAGEnhancedAgentMemory)
 [![Test Coverage](https://img.shields.io/badge/Test%20Coverage-80%2B%25-brightgreen)](tests/)
-[![Status](https://img.shields.io/badge/Status-Production%20Ready-success)](docs/PROJECT_STATUS.md)
+[![Status](https://img.shields.io/badge/Status-Active-success)](https://github.com/F0rJay/RAGEnhancedAgentMemory)
 
 **RAG 增强型 Agent 记忆系统**  
 *基于 LangGraph 与 vLLM 的高性能架构*
