@@ -159,8 +159,10 @@ pie
 
 ---
 
+---
+
 ## 📚 相关文档
 
-- **详细存储优化报告**: [STORAGE_OPTIMIZATION_REPORT.md](./STORAGE_OPTIMIZATION_REPORT.md)
-- **基线系统分析**: [BASELINE_ANALYSIS.md](./BASELINE_ANALYSIS.md)
-- **项目状态**: [PROJECT_STATUS.md](./PROJECT_STATUS.md)
+- 📊 [模拟测试报告](EXPERIMENT_SUMMARY.md) - 我们模拟用户使用插件的测试结果
+- 🔌 [插件使用指南](PLUGIN_USAGE.md) - 开发者集成指南
+- 📖 [使用文档](USAGE.md) - 详细使用说明

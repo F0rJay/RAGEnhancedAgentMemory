@@ -139,7 +139,7 @@
 | **单请求吞吐量** | 67.3 tokens/s | **101.2 tokens/s** | **+50.44%** | ✅ |
 | **并发吞吐量 (20路)** | 70.3 tokens/s | **925.7 tokens/s** | **+1216%** | ✅ |
 
-> 📈 **详细性能报告**：参见 [性能报告](docs/Performance.md) 和 [项目状态报告](docs/PROJECT_STATUS.md)
+> 📈 **详细性能报告**：参见 [性能报告](docs/Performance.md)
 
 ---
 
@@ -403,7 +403,6 @@ RAGEnhancedAgentMemory/
 - 🖥️ [vLLM 服务器设置](docs/VLLM_SERVER_SETUP.md) - vLLM 服务配置指南
 - 📊 [模拟测试报告](docs/EXPERIMENT_SUMMARY.md) - 我们模拟用户使用插件的测试结果
 - 📈 [性能报告](docs/Performance.md) - 详细的性能基准测试结果
-- 📋 [项目状态报告](docs/PROJECT_STATUS.md) - 开发进展和技术细节
 
 > **注意**：其他开发/测试文档已移至 `dev/` 目录，仅供开发者使用。
 
