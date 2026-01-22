@@ -352,6 +352,8 @@ AssertionError: duplicate template name
 - ✅ 通信方式：HTTP API（OpenAI-compatible）
 - ✅ 结果：彻底避免 `duplicate template name` 错误
 
+> 📖 **详细分析**：参见 [故障案例研究](docs/postmortem_vllm_duplicate_template_name.md) 获取完整的问题分析、根因研究和解决方案。
+
 ---
 
 ## ⚡ 性能分析
